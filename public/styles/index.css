@@ -1,0 +1,21 @@
+.custom-navbar {
+    background-color: coral;
+}
+
+.navbar-brand img {
+    width: 80px;
+    height: auto;
+}
+
+.navbar-nav .nav-item .nav-link {
+    font-size: 18px;
+}
+
+.jumbotron p {
+    margin-bottom: 0; /* Remove bottom margin */
+}
+
+.Name{
+    margin-right: 10px;
+    font-size: 24px;
+}
