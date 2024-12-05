@@ -101,6 +101,7 @@ document.getElementById("ButtonSignIn").addEventListener('click', event => {
       alert(`Login successful! Welcome back!`);
 
       // Store user_id in local storage
+      localStorage.setItem('isLoggedIn', 'true');
       localStorage.setItem('user_id', data.user_id);
       localStorage.setItem('Email', email);
       
@@ -217,6 +218,8 @@ document.getElementById("Button-SignUp").addEventListener('click', event => {
       clearSignUpFields();
       storeUserData(email, `${firstName} ${lastName}`, password);
       localStorage.setItem('user_id', data.user_id); // Store user_id in local storage
+      localStorage.setItem('Email', email);
+      localStorage.setItem('isLoggedIn', 'true');
 
       // Redirect to account page
       window.location.href = "account.html";

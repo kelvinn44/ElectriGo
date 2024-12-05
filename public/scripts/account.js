@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const userId = localStorage.getItem('user_id'); // Retrieve user_id from localStorage
-    const apiUrl = `http://localhost:8080/v1/account/user/${userId}`; // Endpoint to get user details using user_id
+    const apiUrl = `http://localhost:8080/v1/account/user/${userId}`; // Corrected userId usage
 
     // If the user is not logged in (user_id is missing), redirect to sign-in page
     if (!userId) {
@@ -37,6 +37,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('dob').value = userData.date_of_birth || '';
         document.getElementById('address').value = userData.address || '';
 
+        // Display membership status, with a null check for the element
+        const membershipStatusElement = document.getElementById('membershipStatus');
+        if (membershipStatusElement) {
+            membershipStatusElement.innerText = `Membership Tier: ${userData.membership_tier || 'N/A'}`;
+        } else {
+            console.error('Error: membershipStatus element not found.');
+        }
+
     } catch (error) {
         console.error('Error fetching user data:', error);
         alert('Failed to load your account information. Please try again later.');
@@ -53,6 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('updateButton').addEventListener('click', async () => {
         // Capture updated form data
         const updatedUserData = {
+            user_id: parseInt(userId),  // Ensure the user ID is included and is a number
             first_name: document.getElementById('firstName').value.trim(),
             last_name: document.getElementById('lastName').value.trim(),
             date_of_birth: document.getElementById('dob').value,
@@ -76,6 +85,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
 
             if (!response.ok) {
+                // Log the error for debugging
+                const errorData = await response.json();
+                console.error("Error response from server:", errorData);
                 throw new Error('Failed to update user data.');
             }
 

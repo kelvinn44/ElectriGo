@@ -121,7 +121,7 @@ func sendVerificationEmail(email, code string) error {
 	m.SetHeader("From", os.Getenv("GMAIL_EMAIL"))
 	m.SetHeader("To", email)
 	m.SetHeader("Subject", "Your Verification Code for Electrigo Account")
-	m.SetBody("text/plain", "Here's your verification code: "+code+" \nThis code will expire in 5 minutes.")
+	m.SetBody("text/plain", "Here's your verification code: "+code+" \tThis code will expire in 5 minutes.")
 
 	d := gomail.NewDialer("smtp.gmail.com", 587, os.Getenv("GMAIL_EMAIL"), os.Getenv("GMAIL_APP_PASSWORD"))
 
@@ -253,13 +253,20 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Update user profile
 func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 	// Parse JSON from request body
 	var user User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
+		log.Printf("Error decoding request body: %v", err)
 		http.Error(w, "Invalid input", http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if user.UserID == 0 || user.FirstName == "" || user.LastName == "" || user.DateOfBirth == "" || user.Address == "" {
+		log.Printf("Debugging: Missing required fields. User data: %+v", user)
+		http.Error(w, "Missing required fields", http.StatusBadRequest)
 		return
 	}
 
@@ -267,13 +274,17 @@ func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 	_, err = db.Exec("UPDATE users SET first_name = ?, last_name = ?, date_of_birth = ?, address = ? WHERE user_id = ?",
 		user.FirstName, user.LastName, user.DateOfBirth, user.Address, user.UserID)
 	if err != nil {
+		log.Printf("Error updating user in database: %v", err)
 		http.Error(w, "Error updating user profile", http.StatusInternalServerError)
 		return
 	}
 
 	// Respond with success
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "User updated successfully",
+	})
 }
 
 // Get user profile
