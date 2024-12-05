@@ -31,15 +31,15 @@ func main() {
 	r.HandleFunc("/v1/account/user/{user_id}", account.UpdateUserProfile).Methods("PUT")
 	r.HandleFunc("/v1/account/requestVerificationCode", account.RequestVerificationCode).Methods("POST")
 
-	// Enable CORS for the router with specific configuration
+	// Setup CORS
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500"}, // Add your front-end origin here
+		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500"}, // Add the origins you want to allow
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},                   // Allow specific methods
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},                  // Allow necessary headers
-		AllowCredentials: true,                                                       // Allow credentials like cookies, authorization headers
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},                  // Allow specific headers
+		AllowCredentials: true,                                                       // Allow cookies and credentials
 	})
 
-	// Wrap the router with CORS middleware
+	// Wrap the router with CORS
 	handler := c.Handler(r)
 
 	// Start the server

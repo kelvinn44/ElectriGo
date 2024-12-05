@@ -1,0 +1,13 @@
+.custom-navbar {
+    background-color: white;
+    border-bottom: 1px solid black;
+}
+
+.navbar-brand img {
+    width: 80px;
+    height: auto;
+}
+
+.navbar-nav .nav-item .nav-link {
+    font-size: 18px;
+}
