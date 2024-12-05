@@ -19,8 +19,7 @@ func main() {
 	}
 
 	// Initialize the database connection
-	// account.InitDB()
-	// defer account.DB.Close()
+	account.InitDB()
 
 	// Create a new router
 	r := mux.NewRouter()

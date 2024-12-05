@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>ElectriGo | Sign In - Sign Up</title>
+    <link rel="icon" type="image/x-icon" href="images/icon-electrigo.png">
+    <link rel="stylesheet" type="text/css" href="styles/Normalize.css">
+    <link rel="stylesheet" type="text/css" href="styles/signin_signup.css">
+</head>
+<body>
+    <div class="container" id="container">
+        <!-- Sign In Form -->
+        <div class="form-container sign-in-container">
+            <form id="signInForm">
+                <h1>Sign In</h1>
+                <br>
+                <div class="email-container">
+                    <input type="email" id="emailSignIn" placeholder="Enter your email" />
+                    <button type="button" id="emailVerificationButtonSignIn" class="verify-btn">Verify</button>
+                </div>
+                <input type="password" name="password" placeholder="Password" id="passwordSignIn">
+                <small>Email and Password input are case-sensitive.</small>
+                <br>
+                
+                <!-- Verification Code Input -->
+                <input type="text" id="verificationCode" placeholder="Enter verification code" disabled>
+
+                <button id="ButtonSignIn" disabled>SIGN IN</button>
+                <a href="index.html">BACK TO HOME</a>
+            </form>
+        </div>
+
+        <!-- Sign Up Form -->
+        <div class="form-container sign-up-container">
+            <form id="signUpForm">
+                <h1>Sign Up</h1>
+                <br>
+                <input type="text" name="first_name" placeholder="First Name" id="firstNameSignUp">
+                <input type="text" name="last_name" placeholder="Last Name" id="lastNameSignUp">
+                <div class="email-container">
+                    <input type="email" id="emailSignUp" placeholder="Enter your email" />
+                    <button type="button" id="emailVerificationButtonSignUp" class="verify-btn">Verify</button>
+                </div>
+                <input type="password" name="password" placeholder="Password" id="passwordSignUp">
+                <input type="text" name="address" placeholder="Address" id="addressSignUp">
+                <input type="date" name="date_of_birth" placeholder="Date of Birth" id="dateOfBirthSignUp">
+                <small>All inputs are case-sensitive.</small>
+                <br>
+                
+                <!-- Verification Code Input -->
+                <input type="text" id="verificationCodeSignUp" placeholder="Enter verification code" disabled>
+
+                <button id="Button-SignUp" disabled>SIGN UP</button>
+                <a href="index.html">BACK TO HOME</a>
+            </form>
+        </div>
+
+        <!-- Overlay for transition between sign-in and sign-up -->
+        <div class="overlay-container">
+            <div class="overlay">
+                <div class="overlay-panel overlay-left">
+                    <h1>Welcome back to ElectriGo!</h1>
+                    <p>Sign in and continue your journey with us</p>
+                    <button class="ghost" id="signIn">SIGN IN?</button>
+                </div>
+                <div class="overlay-panel overlay-right">
+                    <h1>Join us!</h1>
+                    <p>Sign up for ElectriGo! Get great benefits.</p>
+                    <button class="ghost" id="signUp">SIGN UP?</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="scripts/signin_signup.js"></script>
+</body>
+</html>

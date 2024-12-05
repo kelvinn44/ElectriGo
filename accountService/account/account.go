@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -23,7 +24,7 @@ var db *sql.DB
 func InitDB() {
 	var err error
 	// Connect to the MySQL database
-	dsn := "root:password@tcp(localhost:3306)/electrigo_accountdb"
+	dsn := "user:password@tcp(localhost:3306)/electrigo_accountdb"
 	db, err = sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatal(err)
@@ -46,24 +47,33 @@ type User struct {
 	Address        string `json:"address"`
 }
 
+type RegisterUserRequest struct {
+	FirstName    string `json:"FirstName"`
+	LastName     string `json:"LastName"`
+	Email        string `json:"Email"`
+	PasswordHash string `json:"PasswordHash"`
+	Address      string `json:"Address"`
+	DateOfBirth  string `json:"DateOfBirth"`
+	Code         string `json:"Code"`
+}
+
+// In-memory store for verification codes
+var verificationCodes = struct {
+	sync.RWMutex
+	data map[string]verificationCodeEntry
+}{data: make(map[string]verificationCodeEntry)}
+
+// Struct to hold verification code and its expiration time
+type verificationCodeEntry struct {
+	Code      string
+	ExpiresAt time.Time
+}
+
 // Generate a random verification code
 func generateVerificationCode() string {
 	rand.Seed(time.Now().UnixNano())
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
 	return code
-}
-
-// Send email with verification code
-func sendVerificationEmail(email, code string) error {
-	m := gomail.NewMessage()
-	m.SetHeader("From", os.Getenv("GMAIL_EMAIL"))
-	m.SetHeader("To", email)
-	m.SetHeader("Subject", "Your Verification Code")
-	m.SetBody("text/plain", "Your verification code is: "+code)
-
-	d := gomail.NewDialer("smtp.gmail.com", 587, os.Getenv("GMAIL_EMAIL"), os.Getenv("GMAIL_APP_PASSWORD"))
-
-	return d.DialAndSend(m)
 }
 
 // Request Verification Code API Handler
@@ -76,65 +86,129 @@ func RequestVerificationCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate a verification code
 	code := generateVerificationCode()
+
+	// Send the verification email
 	err := sendVerificationEmail(request.Email, code)
 	if err != nil {
 		http.Error(w, "Failed to send verification code", http.StatusInternalServerError)
 		return
 	}
 
-	// For demo purposes, store code temporarily (in a real app, this should be stored in a DB with expiration time)
-	// Save to DB or in-memory store
+	// Store the code in the in-memory store with an expiration time (5 minutes)
+	expirationTime := time.Now().Add(5 * time.Minute)
 
-	// Respond with the verification code (for the demo)
+	verificationCodes.Lock()
+	verificationCodes.data[request.Email] = verificationCodeEntry{
+		Code:      code,
+		ExpiresAt: expirationTime,
+	}
+	verificationCodes.Unlock()
+
+	// Respond with success and include the code for debugging
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"code":    code,
+		"message": "Verification code sent successfully.",
+		"code":    code, // Include the code in the response for debugging purposes (remove in production)
 	})
 }
 
-// Register a new user
+// Send email with verification code
+func sendVerificationEmail(email, code string) error {
+	m := gomail.NewMessage()
+	m.SetHeader("From", os.Getenv("GMAIL_EMAIL"))
+	m.SetHeader("To", email)
+	m.SetHeader("Subject", "Your Verification Code for Electrigo Account")
+	m.SetBody("text/plain", "Here's your verification code: "+code+" \nThis code will expire in 5 minutes.")
+
+	d := gomail.NewDialer("smtp.gmail.com", 587, os.Getenv("GMAIL_EMAIL"), os.Getenv("GMAIL_APP_PASSWORD"))
+
+	return d.DialAndSend(m)
+}
+
+// Function to validate a verification code
+func ValidateVerificationCode(email, code string) bool {
+	verificationCodes.RLock()
+	defer verificationCodes.RUnlock()
+
+	entry, exists := verificationCodes.data[email]
+	if !exists {
+		return false // Code does not exist
+	}
+
+	if time.Now().After(entry.ExpiresAt) {
+		return false // Code has expired
+	}
+
+	return entry.Code == code // Check if the code matches
+}
+
 func RegisterUser(w http.ResponseWriter, r *http.Request) {
-	// Parse JSON from request body
-	var user User
-	err := json.NewDecoder(r.Body).Decode(&user)
+	var req RegisterUserRequest
+
+	// Decode the incoming request body into the RegisterUserRequest struct
+	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
+		log.Println("Error decoding request body:", err)
 		http.Error(w, "Invalid input", http.StatusBadRequest)
+		return
+	}
+
+	// Validate that required fields are present
+	if req.FirstName == "" || req.LastName == "" || req.Email == "" || req.PasswordHash == "" || req.Address == "" || req.DateOfBirth == "" {
+		log.Printf("Debugging: Missing required fields. User data: %+v\n", req)
+		http.Error(w, "Missing required fields", http.StatusBadRequest)
+		return
+	}
+
+	// Validate the verification code
+	if !ValidateVerificationCode(req.Email, req.Code) {
+		log.Println("Invalid or expired verification code for email:", req.Email)
+		http.Error(w, "Invalid or expired verification code", http.StatusUnauthorized)
 		return
 	}
 
 	// Check if email already exists
 	var exists bool
-	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)", user.Email).Scan(&exists)
+	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)", req.Email).Scan(&exists)
 	if err != nil {
+		log.Println("Error checking email existence:", err)
 		http.Error(w, "Error checking email", http.StatusInternalServerError)
 		return
 	}
 
 	if exists {
+		log.Println("Email already in use for:", req.Email)
 		http.Error(w, "Email already in use", http.StatusConflict)
 		return
 	}
 
 	// Hash the password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.PasswordHash), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.PasswordHash), bcrypt.DefaultCost)
 	if err != nil {
+		log.Println("Error hashing password:", err)
 		http.Error(w, "Error hashing password", http.StatusInternalServerError)
 		return
 	}
 
-	// Insert user into database
+	// Insert user into the database
 	_, err = db.Exec("INSERT INTO users (email, password_hash, first_name, last_name, date_of_birth, address) VALUES (?, ?, ?, ?, ?, ?)",
-		user.Email, hashedPassword, user.FirstName, user.LastName, user.DateOfBirth, user.Address)
+		req.Email, hashedPassword, req.FirstName, req.LastName, req.DateOfBirth, req.Address)
 	if err != nil {
+		log.Println("Error inserting user into database:", err)
 		http.Error(w, "Error registering user", http.StatusInternalServerError)
 		return
 	}
 
 	// Respond with success
+	log.Println("User registered successfully:", req.Email)
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "User registered successfully.",
+	})
 }
 
 // Login a user and check credentials
@@ -152,7 +226,8 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	// Get the stored password hash for the user
 	var storedPasswordHash string
-	err = db.QueryRow("SELECT password_hash FROM users WHERE email = ?", loginData.Email).Scan(&storedPasswordHash)
+	var userID int
+	err = db.QueryRow("SELECT user_id, password_hash FROM users WHERE email = ?", loginData.Email).Scan(&userID, &storedPasswordHash)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Invalid email or password", http.StatusUnauthorized)
@@ -169,9 +244,13 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Successful login
+	// Respond with success JSON including user_id
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Login successful"))
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Login successful",
+		"user_id": userID,
+	})
 }
 
 // Update user profile
