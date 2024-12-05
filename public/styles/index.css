@@ -1,5 +1,6 @@
 .custom-navbar {
-    background-color: coral;
+    background-color: white;
+    border-bottom: 1px solid black;
 }
 
 .navbar-brand img {
