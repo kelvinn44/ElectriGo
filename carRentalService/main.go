@@ -23,8 +23,12 @@ func main() {
 	r.HandleFunc("/v1/vehicles", car.GetAllVehicles).Methods("GET")
 
 	// Define the routes for the booking service
-	r.HandleFunc("/v1/vehicles/reserve", booking.MakeReservation).Methods("POST")
+	r.HandleFunc("/v1/bookings/reserve", booking.MakeReservation).Methods("POST")
+	r.HandleFunc("/v1/bookings/{reservation_id}", booking.GetReservation).Methods("GET") // New route for reservation details
 	r.HandleFunc("/v1/reservations/{reservation_id}/cancel", booking.CancelReservation).Methods("PUT")
+	r.HandleFunc("/v1/bookings/promotions", booking.GetPromotion).Methods("GET")
+	r.HandleFunc("/v1/bookings/user/{user_id}", booking.GetUserReservations).Methods("GET") // New route for getting all user reservations
+	r.HandleFunc("/v1/bookings/{reservation_id}", booking.UpdateReservation).Methods("PUT") // New route for updating a reservation
 
 	// Enable CORS for the router with specific configuration
 	c := cors.New(cors.Options{

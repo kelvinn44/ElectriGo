@@ -2,9 +2,7 @@
 const signInButton = document.getElementById("signIn");
 const signUpButton = document.getElementById("signUp");
 const container = document.getElementById("container");
-const verificationCodeInputSignIn = document.getElementById("verificationCode");
 const verificationCodeInputSignUp = document.getElementById("verificationCodeSignUp");
-const emailVerificationButtonSignIn = document.getElementById("emailVerificationButtonSignIn");
 const emailVerificationButtonSignUp = document.getElementById("emailVerificationButtonSignUp");
 
 // Store verification code for comparison
@@ -25,37 +23,6 @@ document.getElementById("signUpForm").addEventListener('submit', event => {
   document.getElementById("Button-SignUp").click();
 });
 
-// Handle Email Verification for Sign In
-emailVerificationButtonSignIn.addEventListener("click", () => {
-  const email = document.getElementById("emailSignIn").value;
-
-  if (!email) {
-    alert("Please enter your email address before requesting a verification code.");
-    return;
-  }
-
-  fetch('http://localhost:8080/v1/account/requestVerificationCode', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ Email: email }),
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      verificationCode = data.code || ""; // Assign the returned code if it exists
-
-      alert("A verification code has been sent to your email address.");
-      verificationCodeInputSignIn.disabled = false;
-      document.getElementById("ButtonSignIn").disabled = false;
-    } else {
-      alert("Failed to send verification code. Please try again.");
-    }
-  })
-  .catch(error => console.error("Error sending verification code:", error));
-});
-
 // Handle Sign In Form Submit
 document.getElementById("ButtonSignIn").addEventListener('click', event => {
   event.preventDefault();  // Prevent form default submission behavior
@@ -63,14 +30,6 @@ document.getElementById("ButtonSignIn").addEventListener('click', event => {
   // Collect input values from the form
   const email = document.getElementById("emailSignIn").value;
   const password = document.getElementById("passwordSignIn").value;
-  const enteredCode = verificationCodeInputSignIn.value;
-
-  // Check if verification code entered matches the one stored
-  if (enteredCode !== verificationCode) {
-    alert("Invalid verification code. Please try again.");
-    console.error("Verification failed: Entered code does not match stored code.");
-    return;
-  }
 
   // Create the payload to send to the server for login
   const payload = {
@@ -119,40 +78,48 @@ document.getElementById("ButtonSignIn").addEventListener('click', event => {
 });
 
 // Handle Email Verification for Sign Up
-emailVerificationButtonSignUp.addEventListener("click", () => {
+emailVerificationButtonSignUp.addEventListener("click", async () => {
   const email = document.getElementById("emailSignUp").value;
 
   if (!email) {
-    alert("Please enter your email address before requesting a verification code.");
-    return;
+      alert("Please enter your email address before requesting a verification code.");
+      return;
   }
 
-  fetch("http://localhost:8080/v1/account/requestVerificationCode", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ Email: email }),
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      verificationCode = data.code || ""; // Assign the returned code if it exists
+  // Disable the button to prevent multiple requests and indicate loading
+  emailVerificationButtonSignUp.disabled = true;
+  emailVerificationButtonSignUp.innerText = "Sending...";
 
-      alert("A verification code has been sent to your email address.");
-      
-      // Enable the verification code input field
-      verificationCodeInputSignUp.disabled = false;
-      // Enable Sign Up button
-      document.getElementById("Button-SignUp").disabled = false;
-    } else {
-      alert("Failed to send verification code. Please try again.");
-    }
-  })
-  .catch(error => {
-    console.error("Error:", error);
-    alert(error.message);
-  });
+  try {
+      const response = await fetch("http://localhost:8080/v1/account/requestVerificationCode", {
+          method: "POST",
+          headers: {
+              "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ Email: email }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+          verificationCode = data.code || ""; // Assign the returned code if it exists
+          alert("A verification code has been sent to your email address.");
+
+          // Enable the verification code input field
+          verificationCodeInputSignUp.disabled = false;
+          // Enable Sign Up button
+          document.getElementById("Button-SignUp").disabled = false;
+      } else {
+          alert("Failed to send verification code. Please try again.");
+      }
+  } catch (error) {
+      console.error("Error sending verification code:", error);
+      alert("An error occurred. Please try again.");
+  } finally {
+      // Re-enable button and reset text
+      emailVerificationButtonSignUp.disabled = false;
+      emailVerificationButtonSignUp.innerText = "Verify";
+  }
 });
 
 // Handle Sign Up Form Submit after Verification

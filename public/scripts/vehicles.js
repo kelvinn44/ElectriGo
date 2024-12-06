@@ -39,12 +39,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                             </p>
                             ${vehicle.availability_status === 'Available' ? `
                                 <div class="mb-3">
-                                    <label for="startDate${vehicle.vehicle_id}" class="form-label">Start Date</label>
-                                    <input type="date" class="form-control" id="startDate${vehicle.vehicle_id}">
+                                    <label for="startDate${vehicle.vehicle_id}" class="form-label">Start Date and Time</label>
+                                    <input type="datetime-local" class="form-control" id="startDate${vehicle.vehicle_id}">
                                 </div>
                                 <div class="mb-3">
-                                    <label for="endDate${vehicle.vehicle_id}" class="form-label">End Date</label>
-                                    <input type="date" class="form-control" id="endDate${vehicle.vehicle_id}">
+                                    <label for="endDate${vehicle.vehicle_id}" class="form-label">End Date and Time</label>
+                                    <input type="datetime-local" class="form-control" id="endDate${vehicle.vehicle_id}">
                                 </div>
                                 <button class="btn btn-primary" onclick="makeReservation(${vehicle.vehicle_id})">Reserve</button>
                             ` : `
@@ -62,13 +62,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Function to make a reservation
 async function makeReservation(vehicleId) {
     const startDate = document.getElementById(`startDate${vehicleId}`).value;
     const endDate = document.getElementById(`endDate${vehicleId}`).value;
 
+    // Check if the start and end date and time have been selected
     if (!startDate || !endDate) {
-        alert("Please select both start and end dates.");
+        alert("Please select both start and end dates and times.");
         return;
     }
 
@@ -80,11 +80,16 @@ async function makeReservation(vehicleId) {
     }
 
     const reservationPayload = {
-        user_id: userId,
-        vehicle_id: vehicleId,
-        start_time: startDate, // Updated to match the backend expected fields
-        end_time: endDate,
+        user_id: parseInt(userId), // Ensure this is an integer
+        vehicle_id: parseInt(vehicleId), // Ensure this is an integer
+        start_time: new Date(startDate).toISOString(), // Convert date and time to ISO format
+        end_time: new Date(endDate).toISOString() // Convert date and time to ISO format
     };
+
+    console.log("Making reservation for user_id:", userId, "vehicle_id:", vehicleId);
+    console.log("Start Date and Time:", startDate, "End Date and Time:", endDate);
+    console.log("Reservation payload:", reservationPayload);
+    console.log("Sending reservation request to:", 'http://localhost:8081/v1/bookings/reserve');
 
     try {
         const response = await fetch('http://localhost:8081/v1/bookings/reserve', {
@@ -96,12 +101,58 @@ async function makeReservation(vehicleId) {
         });
 
         if (!response.ok) {
-            throw new Error('Failed to make a reservation.');
+            const errorText = await response.text(); // Read the server response
+            console.error("Error response from server:", errorText);
+            throw new Error(errorText || 'Failed to make a reservation.');
         }
 
+        const data = await response.json();
+        console.log("Reservation created successfully, response data:", data);
+
+        // Use the returned reservation_id to navigate to the checkout page
+        const reservationId = data.reservation_id;
         alert('Reservation successful!');
+        window.location.href = `checkout.html?reservation_id=${reservationId}`;
+
     } catch (error) {
         console.error('Error making reservation:', error);
         alert('Failed to make a reservation. Please try again later.');
+    }
+}
+
+// Helper functions for sign-in/sign-out logic
+function toggleSignIn() {
+    const signInButton = document.getElementById('signInButton');
+    if (signInButton.innerText === 'Sign In') {
+        // If button is in "Sign In" state, redirect to sign-in page
+        window.location.href = "signin_signup.html";
+    } else {
+        // If button is in "Log Out" state, log the user out and reset the UI
+        signInButton.innerText = 'Sign In';
+
+        // Change button color back to blue
+        signInButton.classList.remove('btn-danger');
+        signInButton.classList.add('btn-primary');
+
+        // Remove user data from local storage
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('user_id');
+        localStorage.removeItem('Email');
+        localStorage.removeItem('Password');
+
+        // Display alert when logging out
+        alert("You have been logged out successfully!");
+    }
+}
+
+function initializeSignInButton(signInButton) {
+    // Check if the user is already logged in on page load
+    if (localStorage.getItem('isLoggedIn') === 'true') {
+        // User is logged in, update the button text to "Log Out"
+        signInButton.innerText = 'Log Out';
+
+        // Change button color to red to indicate log-out state
+        signInButton.classList.remove('btn-primary');
+        signInButton.classList.add('btn-danger');
     }
 }

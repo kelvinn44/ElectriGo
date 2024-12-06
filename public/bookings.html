@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>ElectriGo | Bookings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="images/icon-electrigo.png">
+    <link rel="stylesheet" type="text/css" href="styles/Normalize.css">
+    <link rel="stylesheet" href="styles/bookings.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-lg custom-navbar">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="index.html">
+                    <img src="images/electrigo-logo.png" alt="ElectriGo Logo">
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse justify-content-between" id="navbarNav">
+                    <ul class="navbar-nav mx-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" href="index.html">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="account.html">Account</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="vehicles.html">Vehicles</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" aria-current="page" href="bookings.html">Bookings</a>
+                        </li>
+                    </ul>
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <button id="signInButton" onclick="toggleSignIn()" class="btn btn-primary">Sign In</button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mt-5">
+        <h1>Your Reservations</h1>
+        <div id="bookingsContainer" class="row">
+            <!-- Reservations will be dynamically inserted here -->
+        </div>
+    </main>
+
+    <footer>
+        <div class="text-center py-3">
+            <p style="margin: 0; color: white;">&copy; 2024 ElectriGo | Contact us: <a href="mailto:contact@electrigo.com" style="color: white;">contact@electrigo.com</a></p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="scripts/bookings.js"></script>
+</body>
+</html>
