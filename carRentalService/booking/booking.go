@@ -44,14 +44,6 @@ type Reservation struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
-// Promotion struct represents a promotion in the system
-type Promotion struct {
-	PromoCode          string  `json:"promo_code"`
-	DiscountPercentage float64 `json:"discount_percentage"`
-	ValidFrom          string  `json:"valid_from"`
-	ValidUntil         string  `json:"valid_until"`
-}
-
 // Make a new reservation
 func MakeReservation(w http.ResponseWriter, r *http.Request) {
 	var reservation Reservation
@@ -189,49 +181,6 @@ func GetReservation(w http.ResponseWriter, r *http.Request) {
 	// Respond with the reservation details
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(reservation)
-}
-
-// GetPromotion fetches a promotion by promo code
-func GetPromotion(w http.ResponseWriter, r *http.Request) {
-	// Extract the promo_code query parameter
-	promoCode := r.URL.Query().Get("promo_code")
-	if promoCode == "" {
-		log.Println("Missing promo_code query parameter")
-		http.Error(w, "Missing promo_code query parameter", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("Fetching promotion for promo_code: %s\n", promoCode)
-
-	var promo Promotion
-
-	// Query the promotion from the database
-	query := `
-        SELECT promo_code, discount_percentage, valid_from, valid_until
-        FROM Promotions
-        WHERE promo_code = ? AND CURDATE() BETWEEN valid_from AND valid_until
-    `
-
-	// Execute the query
-	err := db.QueryRow(query, promoCode).
-		Scan(&promo.PromoCode, &promo.DiscountPercentage, &promo.ValidFrom, &promo.ValidUntil)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// This error means the promo code does not exist or it's expired
-			log.Printf("Promo code %s not found or expired\n", promoCode)
-			http.Error(w, "Promo code not found or expired", http.StatusNotFound)
-		} else {
-			// Some other error occurred
-			log.Printf("Error fetching promotion from database: %v\n", err)
-			http.Error(w, "Error fetching promotion", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// If no errors occurred, send the promo details in response
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(promo)
 }
 
 // GetUserReservations handles fetching reservations for a specific user

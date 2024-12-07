@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         confirmationDetails.innerHTML = `
             <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title">Booking Confirmation</h5>
                     <p class="card-text"><strong>Booking ID:</strong> ${reservation.reservation_id}</p>
                     <p class="card-text"><strong>Vehicle:</strong> ${reservation.vehicle_name}</p>
                     <p class="card-text"><strong>Start Date & Time:</strong> ${new Date(reservation.start_time).toLocaleString()}</p>
@@ -46,15 +45,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Helper function for sign-in/sign-out logic
+// Helper functions for sign-in/sign-out logic
 function toggleSignIn() {
-    const signInButton = document.getElementById('signInButton');
+    var signInButton = document.getElementById('signInButton');
+
     if (signInButton.innerText === 'Sign In') {
-        // Redirect to the sign-in page if not signed in
+        // If button is in "Sign In" state, redirect to sign-in page
         window.location.href = "signin_signup.html";
     } else {
-        // If signed in, handle log out
+        // If button is in "Log Out" state, log the user out and reset the UI
         signInButton.innerText = 'Sign In';
+
+        // Change button color back to blue
         signInButton.classList.remove('btn-danger');
         signInButton.classList.add('btn-primary');
 
@@ -64,7 +66,25 @@ function toggleSignIn() {
         localStorage.removeItem('Email');
         localStorage.removeItem('Password');
 
-        // Alert the user
+        // Display alert when logging out
         alert("You have been logged out successfully!");
     }
 }
+
+// Check if the user is already logged in on page load
+window.onload = function() {
+    var signInButton = document.getElementById('signInButton');
+
+    if (localStorage.getItem('isLoggedIn') === 'true') {
+        // User is logged in, update the button text to "Log Out"
+        signInButton.innerText = 'Log Out';
+
+        // Change button color to red to indicate log-out state
+        signInButton.classList.remove('btn-primary');
+        signInButton.classList.add('btn-danger');
+    }
+};
+
+// Set the event listener for the sign-in button
+document.getElementById('signInButton').addEventListener('click', toggleSignIn);
+

@@ -24,12 +24,18 @@ document.getElementById("signUpForm").addEventListener('submit', event => {
 });
 
 // Handle Sign In Form Submit
-document.getElementById("ButtonSignIn").addEventListener('click', event => {
-  event.preventDefault();  // Prevent form default submission behavior
+document.getElementById("ButtonSignIn").addEventListener('click', async event => {
+  event.preventDefault(); // Prevent form default submission behavior
 
   // Collect input values from the form
-  const email = document.getElementById("emailSignIn").value;
-  const password = document.getElementById("passwordSignIn").value;
+  const email = document.getElementById("emailSignIn").value.trim();
+  const password = document.getElementById("passwordSignIn").value.trim();
+
+  // Validate input fields
+  if (!email || !password) {
+    alert("Please enter both email and password.");
+    return;
+  }
 
   // Create the payload to send to the server for login
   const payload = {
@@ -37,45 +43,72 @@ document.getElementById("ButtonSignIn").addEventListener('click', event => {
     Password: password,
   };
 
-  // Send POST request to log in
-  fetch('http://localhost:8080/v1/account/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  })
-  .then(response => {
-    // Expect JSON response from server
-    if (!response.ok) {
-      return response.json().then(errData => {
-        console.error("Debugging: Response body for error:", errData);
-        throw new Error(errData.message || 'Login failed. Please try again.');
-      });
-    }
-    return response.json(); // Convert response to JSON
-  })
-  .then(data => {
-    if (data.success) {
-      alert(`Login successful! Welcome back!`);
+  try {
+    // Send POST request to log in
+    const response = await fetch('http://localhost:8080/v1/account/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
 
-      // Store user_id in local storage
+    // Check if the response is not OK
+    if (!response.ok) {
+      const errorData = await response.json(); // Attempt to parse JSON error message
+      if (response.status === 401) {
+        throw new Error(errorData.message || "Invalid email or password. Please try again.");
+      } else {
+        throw new Error(errorData.message || "An error occurred during login. Please try again.");
+      }
+    }
+
+    // Parse successful response JSON
+    const data = await response.json();
+
+    // Handle successful login
+    if (data.success) {
+      alert("Login successful! Welcome back!");
+
+      // Store user_id and other data in local storage
       localStorage.setItem('isLoggedIn', 'true');
       localStorage.setItem('user_id', data.user_id);
       localStorage.setItem('Email', email);
-      
+
+       // Fetch user profile data and ensure fields are populated
+       const userId = data.user_id;
+       await fetchUserProfile(userId);
+
       // Redirect to account page
       window.location.href = "account.html";
     } else {
       alert("Login failed. Please check your email or password.");
-      console.error("Server response indicated failure:", data);
     }
-  })
-  .catch(error => {
+  } catch (error) {
+    // Handle errors (both network and backend errors)
     console.error("Login error occurred:", error);
-    alert(`Login failed: ${error.message}`);
-  });
+    alert(error.message); // Display meaningful error message to the user
+  }
 });
+
+async function fetchUserProfile(userId) {
+  const apiUrl = `http://localhost:8080/v1/account/user/${userId}`;
+  try {
+    const response = await fetch(apiUrl, { method: "GET", headers: { "Content-Type": "application/json" } });
+    if (!response.ok) throw new Error("Failed to fetch user profile.");
+
+    const userData = await response.json();
+
+    // Check if required fields are populated
+    if (!userData.first_name || !userData.last_name || !userData.date_of_birth || !userData.address) {
+      alert("Your profile is incomplete. Please update your profile.");
+      window.location.href = "profile_update.html"; // Redirect to profile update page
+    }
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    alert("Failed to load your profile. Please try again later.");
+  }
+}
 
 // Handle Email Verification for Sign Up
 emailVerificationButtonSignUp.addEventListener("click", async () => {
@@ -179,17 +212,13 @@ document.getElementById("Button-SignUp").addEventListener('click', event => {
   })
   .then(data => {
     if (data.success) {
-      alert(`Sign up successful! Welcome to ElectriGo, ${firstName}!`);
+      alert(`Sign up successful! Welcome to ElectriGo, ${firstName}! You can now log in.`);
 
-      // Clear form fields and store user data in local storage
+      // Clear form fields
       clearSignUpFields();
-      storeUserData(email, `${firstName} ${lastName}`, password);
-      localStorage.setItem('user_id', data.user_id); // Store user_id in local storage
-      localStorage.setItem('Email', email);
-      localStorage.setItem('isLoggedIn', 'true');
 
-      // Redirect to account page
-      window.location.href = "account.html";
+      // Redirect to login page
+      window.location.href = "signin_signup.html";
     } else {
       alert("Sign up failed. Please try again.");
       console.error("Server response indicated failure:", data);

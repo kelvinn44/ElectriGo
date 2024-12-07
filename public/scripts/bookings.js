@@ -30,6 +30,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const reservationCard = document.createElement('div');
                 reservationCard.classList.add('col-md-4', 'mb-4');
 
+                // Determine whether to show buttons based on status
+                const isCompleted = reservation.status.toLowerCase() === 'completed';
+                const isCancelled = reservation.status.toLowerCase() === 'cancelled';
+
                 reservationCard.innerHTML = `
                     <div class="card">
                         <div class="card-body">
@@ -41,8 +45,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 Status: ${reservation.status}<br>
                                 Total Cost: $${reservation.total_cost.toFixed(2)}
                             </p>
-                            <button class="btn btn-primary mb-2" onclick="modifyReservation(${reservation.reservation_id})">Modify</button>
-                            <button class="btn btn-danger" onclick="cancelReservation(${reservation.reservation_id})">Cancel</button>
+                            ${!isCompleted && !isCancelled ? `
+                                <button class="btn btn-primary mb-2" onclick="modifyReservation(${reservation.reservation_id})">Modify</button>
+                                <button class="btn btn-danger" onclick="cancelReservation(${reservation.reservation_id})">Cancel</button>
+                            ` : `
+                                <p class="text-secondary">${isCancelled ? "This reservation has been cancelled." : "This reservation is completed."}</p>
+                            `}
                         </div>
                     </div>
                 `;
@@ -55,6 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// Function to modify a reservation
 async function modifyReservation(reservationId) {
     const newStartTime = prompt("Enter new start time (yyyy-mm-ddThh:mm:ssZ):");
     const newEndTime = prompt("Enter new end time (yyyy-mm-ddThh:mm:ssZ):");
@@ -90,6 +99,7 @@ async function modifyReservation(reservationId) {
     }
 }
 
+// Function to cancel a reservation
 async function cancelReservation(reservationId) {
     if (!confirm("Are you sure you want to cancel this reservation?")) {
         return;
@@ -117,7 +127,8 @@ async function cancelReservation(reservationId) {
 
 // Helper functions for sign-in/sign-out logic
 function toggleSignIn() {
-    const signInButton = document.getElementById('signInButton');
+    var signInButton = document.getElementById('signInButton');
+
     if (signInButton.innerText === 'Sign In') {
         // If button is in "Sign In" state, redirect to sign-in page
         window.location.href = "signin_signup.html";
@@ -140,8 +151,10 @@ function toggleSignIn() {
     }
 }
 
-function initializeSignInButton(signInButton) {
-    // Check if the user is already logged in on page load
+// Check if the user is already logged in on page load
+window.onload = function() {
+    var signInButton = document.getElementById('signInButton');
+
     if (localStorage.getItem('isLoggedIn') === 'true') {
         // User is logged in, update the button text to "Log Out"
         signInButton.innerText = 'Log Out';
@@ -150,4 +163,7 @@ function initializeSignInButton(signInButton) {
         signInButton.classList.remove('btn-primary');
         signInButton.classList.add('btn-danger');
     }
-}
+};
+
+// Set the event listener for the sign-in button
+document.getElementById('signInButton').addEventListener('click', toggleSignIn);

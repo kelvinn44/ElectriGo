@@ -63,7 +63,10 @@ CREATE TABLE Users (
 INSERT INTO Users (email, password_hash, membership_tier, first_name, last_name, date_of_birth, address)
 VALUES 
 ('john.doe@example.com', '$2a$10$eAIugi6UQSOH89HbqMz49.GgYw0blDJwm3tzf..SlW/um9wtyWYtK', 'Basic', 'John', 'Doe', '1990-01-01', '123 Test Street, Singapore'),
-('jane.smith@example.com', '$2a$10$eAIugi6UQSOH89HbqMz49.GgYw0blDJwm3tzf..SlW/um9wtyWYtK', 'Premium', 'Jane', 'Smith', '1985-05-15', '456 Elm Street, Singapore');
+('jane.smith@example.com', '$2a$10$eAIugi6UQSOH89HbqMz49.GgYw0blDJwm3tzf..SlW/um9wtyWYtK', 'Premium', 'Jane', 'Smith', '1985-05-15', '456 Elm Street, Singapore'),
+('alice.brown@example.com', '$2a$10$eAIugi6UQSOH89HbqMz49.GgYw0blDJwm3tzf..SlW/um9wtyWYtK', 'Basic', 'Alice', 'Brown', '1995-02-20', '789 Oak Street, Singapore'),
+('bob.white@example.com', '$2a$10$eAIugi6UQSOH89HbqMz49.GgYw0blDJwm3tzf..SlW/um9wtyWYtK', 'VIP', 'Bob', 'White', '1980-11-30', '123 Pine Street, Singapore'),
+('charlie.gray@example.com', '$2a$10$eAIugi6UQSOH89HbqMz49.GgYw0blDJwm3tzf..SlW/um9wtyWYtK', 'Basic', 'Charlie', 'Gray', '1992-06-15', '321 Maple Street, Singapore'); -- Charlie is one booking away from Premium
 
 -- Use VehicleDB
 USE ElectriGo_VehicleDB;
@@ -106,14 +109,22 @@ CREATE TABLE ReservationHistory (
 INSERT INTO Vehicles (vehicle_name, license_plate, availability_status, hourly_rate)
 VALUES
 ('Tesla Model 3', 'EV1234A', 'Available', 20.00),
-('Nissan Leaf', 'EV5678B', 'Available', 15.00),
-('Chevrolet Bolt', 'EV9101C', 'Maintenance', 18.00);
+('Nissan Leaf', 'EV5678B', 'Booked', 15.00),
+('Chevrolet Bolt', 'EV9101C', 'Maintenance', 18.00),
+('BMW i3', 'EV2022D', 'Available', 25.00),
+('Hyundai Kona EV', 'EV3033E', 'Available', 22.00);
 
--- Insert Sample Data into Reservations
-INSERT INTO Reservations (user_id, vehicle_id, start_time, end_time, status)
+-- Insert Sample Data into Reservations with historical dates
+INSERT INTO Reservations (user_id, vehicle_id, start_time, end_time, status, total_cost)
 VALUES 
-(1, 1, '2024-12-10 09:00:00', '2024-12-10 15:00:00', 'Completed'),
-(2, 2, '2024-12-11 09:00:00', '2024-12-11 15:00:00', 'Completed');
+(1, 1, '2024-11-10 09:00:00', '2024-11-10 15:00:00', 'Completed', 120.00), -- John Doe
+(2, 2, '2024-11-11 09:00:00', '2024-11-11 15:00:00', 'Completed', 90.00), -- Jane Smith
+(3, 3, '2024-11-12 09:00:00', '2024-11-12 15:00:00', 'Cancelled', 0.00), -- Alice Brown
+(4, 4, '2024-11-13 09:00:00', '2024-11-13 15:00:00', 'Completed', 150.00), -- Bob White
+(5, 1, '2024-11-14 10:00:00', '2024-11-14 16:00:00', 'Completed', 130.00), -- Charlie Gray
+(5, 2, '2024-11-15 09:00:00', '2024-11-15 12:00:00', 'Completed', 45.00), -- Charlie Gray
+(5, 4, '2024-11-16 13:00:00', '2024-11-16 15:00:00', 'Completed', 50.00), -- Charlie Gray
+(5, 5, '2024-11-17 08:00:00', '2024-11-17 10:00:00', 'Completed', 44.00); -- Charlie Gray
 
 -- Use BillingDB
 USE ElectriGo_BillingDB;
@@ -155,14 +166,26 @@ CREATE TABLE PaymentTransactions (
 -- Insert Sample Data into BillingDB
 INSERT INTO Promotions (promo_code, discount_percentage, valid_from, valid_until)
 VALUES 
-('NEWYEAR2025', 10.00, '2024-12-01', '2025-01-31');
+('NEWYEAR2025', 10.00, '2024-12-01', '2025-01-31'),
+('SPRINGSALE', 15.00, '2025-03-01', '2025-03-31');
 
 -- Insert Sample Data into Invoices table
 INSERT INTO Invoices (reservation_id, user_id, total_cost, membership_discount, final_amount)
 VALUES
-(1, 1, 60.00, 0.00, 60.00);
+(1, 1, 120.00, 0.00, 120.00),
+(2, 2, 90.00, 10.00, 81.00),
+(4, 4, 150.00, 15.00, 127.50),
+(5, 5, 130.00, 0.00, 130.00),
+(6, 5, 45.00, 0.00, 45.00),
+(7, 5, 50.00, 0.00, 50.00),
+(8, 5, 44.00, 0.00, 44.00);
 
 -- Insert into PaymentTransactions table
 INSERT INTO PaymentTransactions (user_id, invoice_id, payment_method, payment_status)
 VALUES 
-(1, 1, 'PayNow', 'Completed');
+(1, 1, 'PayNow', 'Completed'),
+(2, 2, 'BankTransfer', 'Completed'),
+(4, 3, 'PayNow', 'Pending'),
+(5, 4, 'BankTransfer', 'Completed'),
+(5, 5, 'PayNow', 'Completed'),
+(5, 6, 'PayNow', 'Completed');

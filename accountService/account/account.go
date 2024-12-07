@@ -121,7 +121,7 @@ func sendVerificationEmail(email, code string) error {
 	m.SetHeader("From", os.Getenv("GMAIL_EMAIL"))
 	m.SetHeader("To", email)
 	m.SetHeader("Subject", "Your Verification Code for Electrigo Account")
-	m.SetBody("text/plain", "Here's your verification code: "+code+" \tThis code will expire in 5 minutes.")
+	m.SetBody("text/plain", "Here's your verification code: "+code+" \t. This code will expire in 5 minutes.")
 
 	d := gomail.NewDialer("smtp.gmail.com", 587, os.Getenv("GMAIL_EMAIL"), os.Getenv("GMAIL_APP_PASSWORD"))
 

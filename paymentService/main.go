@@ -7,10 +7,17 @@ import (
 	"paymentService/payment"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
 
 func main() {
+	// Load environment variables
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	// Initialize payment DB
 	payment.InitDB()
 
@@ -19,6 +26,8 @@ func main() {
 
 	// Payment Routes
 	r.HandleFunc("/v1/payments/make", payment.MakePayment).Methods("POST")
+	r.HandleFunc("/v1/invoices/user/{user_id}", payment.GetInvoicesByUser).Methods("GET") // New route for fetching user invoices
+	r.HandleFunc("/v1/promotions/apply", payment.ApplyPromoCode).Methods("POST")
 
 	// Start the server
 	handler := cors.Default().Handler(r)

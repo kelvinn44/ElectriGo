@@ -122,7 +122,8 @@ async function makeReservation(vehicleId) {
 
 // Helper functions for sign-in/sign-out logic
 function toggleSignIn() {
-    const signInButton = document.getElementById('signInButton');
+    var signInButton = document.getElementById('signInButton');
+
     if (signInButton.innerText === 'Sign In') {
         // If button is in "Sign In" state, redirect to sign-in page
         window.location.href = "signin_signup.html";
@@ -145,8 +146,10 @@ function toggleSignIn() {
     }
 }
 
-function initializeSignInButton(signInButton) {
-    // Check if the user is already logged in on page load
+// Check if the user is already logged in on page load
+window.onload = function() {
+    var signInButton = document.getElementById('signInButton');
+
     if (localStorage.getItem('isLoggedIn') === 'true') {
         // User is logged in, update the button text to "Log Out"
         signInButton.innerText = 'Log Out';
@@ -155,4 +158,7 @@ function initializeSignInButton(signInButton) {
         signInButton.classList.remove('btn-primary');
         signInButton.classList.add('btn-danger');
     }
-}
+};
+
+// Set the event listener for the sign-in button
+document.getElementById('signInButton').addEventListener('click', toggleSignIn);
