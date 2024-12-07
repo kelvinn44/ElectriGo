@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         durationHours = Math.ceil((endTime - startTime) / (1000 * 60 * 60));
 
         // Update cost summary
-        updateCostSummary(vehicleName, hourlyRate, membershipTier, durationHours, baseCost, 0, promoDiscountAmount, baseCost);
+        updateCostSummary(vehicleName, hourlyRate, membershipTier, durationHours, baseCost, 0, 0, baseCost);
 
     } catch (error) {
         console.error('Error fetching reservation details:', error);
@@ -104,12 +104,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert("Please enter a valid promo code.");
             return;
         }
-
+    
         const promoPayload = {
             promo_code: promoCode,
             reservation_id: parseInt(reservationId, 10),
         };
-
+    
         try {
             const response = await fetch(promotionsApiUrl, {
                 method: 'POST',
@@ -118,20 +118,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
                 body: JSON.stringify(promoPayload),
             });
-
+    
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error(`Promo code response error: ${errorText}`);
                 throw new Error('Invalid or expired promo code.');
             }
-
+    
             const promoData = await response.json();
-            const membershipDiscount = (baseCost * discountPercentage) / 100; // Membership discount is applied first
+    
+            // Membership discount is applied first
+            const membershipDiscount = (baseCost * discountPercentage) / 100;
             const costAfterMembershipDiscount = baseCost - membershipDiscount;
-            promoDiscountAmount = (costAfterMembershipDiscount * promoData.discount_percentage) / 100; // Promo discount applied to the remaining amount
+    
+            // Apply promo discount to the remaining cost
+            promoDiscountAmount = (costAfterMembershipDiscount * promoData.discount_percentage) / 100;
+    
+            // Final total cost after all discounts
             totalCost = costAfterMembershipDiscount - promoDiscountAmount;
-
-            // Update cost summary with promo discount
+    
+            // Update the cost summary
             updateCostSummary(
                 vehicleName,
                 hourlyRate,
@@ -142,9 +148,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 promoDiscountAmount,
                 totalCost
             );
-
+    
             alert(`Promo code applied successfully! You saved ${promoData.discount_percentage}% on your booking.`);
-
+    
         } catch (error) {
             console.error('Error applying promo code:', error);
             alert('Failed to apply promo code. Please try again later.');
@@ -164,9 +170,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             reservation_id: parseInt(reservationId, 10),
             payment_method: paymentMethod,
             user_id: parseInt(userId, 10),
-            total_cost: totalCost, // Send the calculated total cost
+            total_cost: baseCost, // Send the base cost instead of total cost
             membership_discount: (baseCost * discountPercentage) / 100, // Send the calculated membership discount
             promo_discount: promoDiscountAmount, // Send the calculated promo discount
+            final_amount: totalCost // Include the final amount after all discounts
         };
     
         try {

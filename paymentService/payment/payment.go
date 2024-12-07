@@ -110,8 +110,8 @@ func MakePayment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Final amount is directly from the frontend
-		finalAmount := paymentReq.TotalCost
+		// Calculate the final amount based on discounts
+		finalAmount := paymentReq.TotalCost - paymentReq.MembershipDiscount - paymentReq.PromoDiscount
 
 		// Create the invoice
 		result, err := db.Exec(
@@ -230,7 +230,7 @@ func SendInvoiceEmail(invoice Invoice, promoDiscount float64, userEmail string, 
 			<tr>
 				<th>Invoice ID</th>
 				<th>Reservation ID</th>
-				<th>Total Cost</th>
+				<th>Base Cost</th>
 				<th>Membership Discount</th>
 				<th>Promo Discount</th>
 				<th>Final Amount</th>
