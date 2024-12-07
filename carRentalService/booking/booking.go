@@ -147,38 +147,39 @@ func MakeReservation(w http.ResponseWriter, r *http.Request) {
 
 // GetReservation handles fetching a reservation by ID
 func GetReservation(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	reservationID := vars["reservation_id"]
+	reservationID := mux.Vars(r)["reservation_id"]
 
-	var reservation Reservation
-	var createdAtString string
+	var reservation struct {
+		ReservationID int     `json:"reservation_id"`
+		VehicleName   string  `json:"vehicle_name"`
+		HourlyRate    float64 `json:"hourly_rate"`
+		StartTime     string  `json:"start_time"`
+		EndTime       string  `json:"end_time"`
+		TotalCost     float64 `json:"total_cost"`
+	}
 
-	// Updated SQL query to include `total_cost`
-	query := `
-        SELECT 
-            r.reservation_id, 
-            r.user_id, 
-            r.vehicle_id, 
-            v.vehicle_name,
-			v.hourly_rate, 
-            r.start_time, 
-            r.end_time, 
-            r.status, 
-            r.total_cost, 
-            r.created_at 
+	err := db.QueryRow(`
+        SELECT r.reservation_id, v.vehicle_name, v.hourly_rate, r.start_time, r.end_time, r.total_cost
         FROM Reservations r
         JOIN Vehicles v ON r.vehicle_id = v.vehicle_id
-        WHERE r.reservation_id = ?
-    `
-	err := db.QueryRow(query, reservationID).
-		Scan(&reservation.ReservationID, &reservation.UserID, &reservation.VehicleID, &reservation.VehicleName, &reservation.HourlyRate, &reservation.StartTime, &reservation.EndTime, &reservation.Status, &reservation.TotalCost, &createdAtString)
-	if err != nil {
-		log.Printf("Error fetching reservation from database: %v", err)
+        WHERE r.reservation_id = ?`, reservationID).Scan(
+		&reservation.ReservationID,
+		&reservation.VehicleName,
+		&reservation.HourlyRate,
+		&reservation.StartTime,
+		&reservation.EndTime,
+		&reservation.TotalCost,
+	)
+
+	if err == sql.ErrNoRows {
 		http.Error(w, "Reservation not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		log.Println("Error fetching reservation:", err)
+		http.Error(w, "Error fetching reservation", http.StatusInternalServerError)
 		return
 	}
 
-	// Respond with the reservation details
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(reservation)
 }

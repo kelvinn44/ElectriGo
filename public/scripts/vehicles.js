@@ -39,12 +39,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                             </p>
                             ${vehicle.availability_status === 'Available' ? `
                                 <div class="mb-3">
-                                    <label for="startDate${vehicle.vehicle_id}" class="form-label">Start Date and Time</label>
-                                    <input type="datetime-local" class="form-control" id="startDate${vehicle.vehicle_id}">
+                                    <label for="startDate${vehicle.vehicle_id}" class="form-label">Start Date</label>
+                                    <input type="date" class="form-control" id="startDate${vehicle.vehicle_id}">
                                 </div>
                                 <div class="mb-3">
-                                    <label for="endDate${vehicle.vehicle_id}" class="form-label">End Date and Time</label>
-                                    <input type="datetime-local" class="form-control" id="endDate${vehicle.vehicle_id}">
+                                    <label for="startTime${vehicle.vehicle_id}" class="form-label">Start Time</label>
+                                    <select class="form-control" id="startTime${vehicle.vehicle_id}">
+                                        ${generateHourOptions()}
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="endDate${vehicle.vehicle_id}" class="form-label">End Date</label>
+                                    <input type="date" class="form-control" id="endDate${vehicle.vehicle_id}">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="endTime${vehicle.vehicle_id}" class="form-label">End Time</label>
+                                    <select class="form-control" id="endTime${vehicle.vehicle_id}">
+                                        ${generateHourOptions()}
+                                    </select>
                                 </div>
                                 <button class="btn btn-primary" onclick="makeReservation(${vehicle.vehicle_id})">Reserve</button>
                             ` : `
@@ -62,12 +74,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+function generateHourOptions() {
+    const hours = [];
+    for (let i = 0; i < 12; i++) {
+        const hour = i === 0 ? 12 : i; // Convert 0 to 12 for AM/PM format
+        hours.push(`${hour}:00 AM`);
+    }
+    for (let i = 0; i < 12; i++) {
+        const hour = i === 0 ? 12 : i; // Convert 0 to 12 for AM/PM format
+        hours.push(`${hour}:00 PM`);
+    }
+    return hours.map(hour => `<option value="${hour}">${hour}</option>`).join('');
+}
+
 async function makeReservation(vehicleId) {
     const startDate = document.getElementById(`startDate${vehicleId}`).value;
+    const startTime = document.getElementById(`startTime${vehicleId}`).value;
     const endDate = document.getElementById(`endDate${vehicleId}`).value;
+    const endTime = document.getElementById(`endTime${vehicleId}`).value;
 
     // Check if the start and end date and time have been selected
-    if (!startDate || !endDate) {
+    if (!startDate || !startTime || !endDate || !endTime) {
         alert("Please select both start and end dates and times.");
         return;
     }
@@ -79,17 +106,20 @@ async function makeReservation(vehicleId) {
         return;
     }
 
+    // Combine date and time
+    const startDateTime = new Date(`${startDate} ${convertTo24Hour(startTime)}`).toISOString();
+    const endDateTime = new Date(`${endDate} ${convertTo24Hour(endTime)}`).toISOString();
+
     const reservationPayload = {
         user_id: parseInt(userId), // Ensure this is an integer
         vehicle_id: parseInt(vehicleId), // Ensure this is an integer
-        start_time: new Date(startDate).toISOString(), // Convert date and time to ISO format
-        end_time: new Date(endDate).toISOString() // Convert date and time to ISO format
+        start_time: startDateTime,
+        end_time: endDateTime
     };
 
     console.log("Making reservation for user_id:", userId, "vehicle_id:", vehicleId);
-    console.log("Start Date and Time:", startDate, "End Date and Time:", endDate);
+    console.log("Start Date and Time:", startDateTime, "End Date and Time:", endDateTime);
     console.log("Reservation payload:", reservationPayload);
-    console.log("Sending reservation request to:", 'http://localhost:8081/v1/bookings/reserve');
 
     try {
         const response = await fetch('http://localhost:8081/v1/bookings/reserve', {
@@ -118,6 +148,14 @@ async function makeReservation(vehicleId) {
         console.error('Error making reservation:', error);
         alert('Failed to make a reservation. Please try again later.');
     }
+}
+
+function convertTo24Hour(time) {
+    const [hour, modifier] = time.split(' ');
+    let [hours, minutes] = hour.split(':').map(Number);
+    if (modifier === 'PM' && hours < 12) hours += 12;
+    if (modifier === 'AM' && hours === 12) hours = 0;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
 // Helper functions for sign-in/sign-out logic

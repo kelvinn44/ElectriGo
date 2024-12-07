@@ -16,16 +16,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             },
         });
 
+        const bookingsContainer = document.getElementById('bookingsContainer');
+
         if (!response.ok) {
-            throw new Error('Failed to fetch reservations.');
+            // Display a message for fetch errors
+            bookingsContainer.innerHTML = `<p class="text-danger">Failed to load reservations. Please try again later.</p>`;
+            return;
         }
 
         const reservations = await response.json();
-        const bookingsContainer = document.getElementById('bookingsContainer');
+
+        // Ensure the response is an array
+        if (!Array.isArray(reservations)) {
+            console.warn("Unexpected response format:", reservations);
+            bookingsContainer.innerHTML = `<p class="text-muted">You have no reservations at the moment.</p>`;
+            return;
+        }
 
         if (reservations.length === 0) {
-            bookingsContainer.innerHTML = `<p>You have no reservations at the moment.</p>`;
+            // Display a message if there are no reservations
+            bookingsContainer.innerHTML = `<p class="text-muted">You have no reservations at the moment.</p>`;
         } else {
+            // Sort reservations by reservation_id in descending order
+            reservations.sort((a, b) => b.reservation_id - a.reservation_id);
+            
             reservations.forEach(reservation => {
                 const reservationCard = document.createElement('div');
                 reservationCard.classList.add('col-md-4', 'mb-4');
@@ -45,12 +59,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 Status: ${reservation.status}<br>
                                 Total Cost: $${reservation.total_cost.toFixed(2)}
                             </p>
-                            ${!isCompleted && !isCancelled ? `
-                                <button class="btn btn-primary mb-2" onclick="modifyReservation(${reservation.reservation_id})">Modify</button>
-                                <button class="btn btn-danger" onclick="cancelReservation(${reservation.reservation_id})">Cancel</button>
-                            ` : `
-                                <p class="text-secondary">${isCancelled ? "This reservation has been cancelled." : "This reservation is completed."}</p>
-                            `}
+                            ${
+                                !isCompleted && !isCancelled
+                                    ? `
+                                        <button class="btn btn-primary mb-2" onclick="modifyReservation(${reservation.reservation_id})">Modify</button>
+                                        <button class="btn btn-danger" onclick="cancelReservation(${reservation.reservation_id})">Cancel</button>
+                                    `
+                                    : `
+                                        <p class="text-secondary">${isCancelled ? "This reservation has been cancelled." : "This reservation is completed."}</p>
+                                    `
+                            }
                         </div>
                     </div>
                 `;
@@ -59,7 +77,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     } catch (error) {
         console.error('Error fetching reservations:', error);
-        alert('Failed to load reservations. Please try again later.');
+        const bookingsContainer = document.getElementById('bookingsContainer');
+        bookingsContainer.innerHTML = `<p class="text-danger">Failed to load reservations. Please try again later.</p>`;
     }
 });
 

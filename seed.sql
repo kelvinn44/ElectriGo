@@ -136,6 +136,7 @@ CREATE TABLE Invoices (
     user_id INT NOT NULL,
     total_cost DECIMAL(10, 2),
     membership_discount DECIMAL(10, 2) DEFAULT 0,
+    promo_discount DECIMAL(10, 2) DEFAULT 0,
     final_amount DECIMAL(10, 2),
     issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (reservation_id) REFERENCES ElectriGo_VehicleDB.Reservations(reservation_id) ON DELETE CASCADE,

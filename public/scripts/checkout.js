@@ -126,33 +126,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const promoData = await response.json();
-            promoDiscountAmount = (baseCost * promoData.discount_percentage) / 100;
-            totalCost = baseCost - ((baseCost * discountPercentage) / 100) - promoDiscountAmount;
+            const membershipDiscount = (baseCost * discountPercentage) / 100; // Membership discount is applied first
+            const costAfterMembershipDiscount = baseCost - membershipDiscount;
+            promoDiscountAmount = (costAfterMembershipDiscount * promoData.discount_percentage) / 100; // Promo discount applied to the remaining amount
+            totalCost = costAfterMembershipDiscount - promoDiscountAmount;
 
-            updateCostSummary(vehicleName, hourlyRate, membershipTier, durationHours, baseCost, (baseCost * discountPercentage) / 100, promoDiscountAmount, totalCost);
+            // Update cost summary with promo discount
+            updateCostSummary(
+                vehicleName,
+                hourlyRate,
+                membershipTier,
+                durationHours,
+                baseCost,
+                membershipDiscount,
+                promoDiscountAmount,
+                totalCost
+            );
+
             alert(`Promo code applied successfully! You saved ${promoData.discount_percentage}% on your booking.`);
 
         } catch (error) {
             console.error('Error applying promo code:', error);
             alert('Failed to apply promo code. Please try again later.');
         }
-    });
+    });    
 
     // Handle Payment
     document.getElementById('payButton').addEventListener('click', async () => {
         const paymentMethod = document.getElementById('paymentMethod').value;
-
+    
         if (!paymentMethod) {
             alert('Please select a payment method.');
             return;
         }
-
+    
         const paymentPayload = {
             reservation_id: parseInt(reservationId, 10),
             payment_method: paymentMethod,
             user_id: parseInt(userId, 10),
+            total_cost: totalCost, // Send the calculated total cost
+            membership_discount: (baseCost * discountPercentage) / 100, // Send the calculated membership discount
+            promo_discount: promoDiscountAmount, // Send the calculated promo discount
         };
-
+    
         try {
             const response = await fetch('http://localhost:8082/v1/payments/make', {
                 method: 'POST',
@@ -161,20 +177,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
                 body: JSON.stringify(paymentPayload),
             });
-
+    
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(`Payment failed: ${errorText}`);
             }
-
+    
             alert('Payment successful! Your booking is confirmed.');
             window.location.href = `confirmation.html?reservation_id=${reservationId}`;
-
+    
         } catch (error) {
             console.error('Error processing payment:', error);
             alert(`Failed to process payment. ${error.message}`);
         }
-    });
+    });    
 
     // Handle Payment Method Details Display
     document.getElementById('paymentMethod').addEventListener('change', (event) => {

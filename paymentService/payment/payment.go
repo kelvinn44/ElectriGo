@@ -45,6 +45,7 @@ type Invoice struct {
 	UserID             int     `json:"user_id"`
 	TotalCost          float64 `json:"total_cost"`
 	MembershipDiscount float64 `json:"membership_discount"`
+	PromoDiscount      float64 `json:"promo_discount"`
 	FinalAmount        float64 `json:"final_amount"`
 	IssuedAt           string  `json:"issued_at"`
 }
@@ -75,7 +76,15 @@ func CreateInvoice(reservationID int, userID int, totalCost float64, discount fl
 }
 
 func MakePayment(w http.ResponseWriter, r *http.Request) {
-	var paymentReq Payment
+	var paymentReq struct {
+		ReservationID      int     `json:"reservation_id"`
+		PaymentMethod      string  `json:"payment_method"`
+		UserID             int     `json:"user_id"`
+		TotalCost          float64 `json:"total_cost"`          // Total cost calculated by the frontend
+		MembershipDiscount float64 `json:"membership_discount"` // Membership discount from frontend
+		PromoDiscount      float64 `json:"promo_discount"`      // Promo discount from frontend
+	}
+
 	err := json.NewDecoder(r.Body).Decode(&paymentReq)
 	if err != nil {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
@@ -92,28 +101,6 @@ func MakePayment(w http.ResponseWriter, r *http.Request) {
 		// Create a new invoice if none exists
 		log.Println("No existing invoice found. Creating a new invoice...")
 
-		// Fetch the total cost for the reservation
-		var totalCost float64
-		query := "SELECT total_cost FROM ElectriGo_VehicleDB.Reservations WHERE reservation_id = ?"
-		err = db.QueryRow(query, paymentReq.ReservationID).Scan(&totalCost)
-		if err != nil {
-			log.Println("Error fetching reservation details:", err)
-			http.Error(w, "Error fetching reservation details", http.StatusInternalServerError)
-			return
-		}
-
-		// Assume no discount for now
-		discount := 0.0
-
-		// Create the invoice
-		result, err := db.Exec("INSERT INTO Invoices (reservation_id, user_id, total_cost, membership_discount, final_amount) VALUES (?, ?, ?, ?, ?)",
-			paymentReq.ReservationID, paymentReq.UserID, totalCost, discount, totalCost-discount)
-		if err != nil {
-			log.Println("Error creating invoice:", err)
-			http.Error(w, "Error creating invoice", http.StatusInternalServerError)
-			return
-		}
-
 		// Fetch user email and name
 		var userEmail, userName string
 		err = db.QueryRow("SELECT email, CONCAT(first_name, ' ', last_name) FROM ElectriGo_AccountDB.Users WHERE user_id = ?", paymentReq.UserID).Scan(&userEmail, &userName)
@@ -123,29 +110,53 @@ func MakePayment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Retrieve the new invoice details
+		// Final amount is directly from the frontend
+		finalAmount := paymentReq.TotalCost
+
+		// Create the invoice
+		result, err := db.Exec(
+			"INSERT INTO Invoices (reservation_id, user_id, total_cost, membership_discount, promo_discount, final_amount) VALUES (?, ?, ?, ?, ?, ?)",
+			paymentReq.ReservationID, paymentReq.UserID, paymentReq.TotalCost, paymentReq.MembershipDiscount, paymentReq.PromoDiscount, finalAmount,
+		)
+		if err != nil {
+			log.Println("Error creating invoice:", err)
+			http.Error(w, "Error creating invoice", http.StatusInternalServerError)
+			return
+		}
+
 		invoiceID, _ := result.LastInsertId()
+		existingInvoiceID = int(invoiceID)
+		log.Printf("Created invoice ID: %d", existingInvoiceID)
+
+		// Send the invoice email
 		invoice := Invoice{
-			InvoiceID:          int(invoiceID),
+			InvoiceID:          existingInvoiceID,
 			ReservationID:      paymentReq.ReservationID,
 			UserID:             paymentReq.UserID,
-			TotalCost:          totalCost,
-			MembershipDiscount: discount,
-			FinalAmount:        totalCost - discount,
+			TotalCost:          paymentReq.TotalCost,
+			MembershipDiscount: paymentReq.MembershipDiscount,
+			PromoDiscount:      paymentReq.PromoDiscount,
+			FinalAmount:        finalAmount,
 			IssuedAt:           time.Now().Format("2006-01-02 15:04:05"),
 		}
 
-		// Send invoice email
-		err = SendInvoiceEmail(invoice, userEmail, userName)
+		err = SendInvoiceEmail(invoice, paymentReq.PromoDiscount, userEmail, userName)
 		if err != nil {
 			log.Printf("Error sending invoice email: %v", err)
 			// Continue; don't fail the entire operation if email fails
 		}
 
-		existingInvoiceID = int(invoiceID)
-		log.Printf("Created invoice ID: %d", existingInvoiceID)
+		// Update the reservation's total cost
+		_, err = db.Exec(
+			"UPDATE ElectriGo_VehicleDB.Reservations SET total_cost = ? WHERE reservation_id = ?",
+			finalAmount, paymentReq.ReservationID,
+		)
+		if err != nil {
+			log.Printf("Error updating reservation total cost: %v", err)
+			http.Error(w, "Error updating reservation total cost", http.StatusInternalServerError)
+			return
+		}
 	} else if err != nil {
-		// Handle unexpected errors
 		log.Println("Error checking for existing invoice:", err)
 		http.Error(w, "Error processing payment", http.StatusInternalServerError)
 		return
@@ -160,100 +171,13 @@ func MakePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update membership tier
-	err = UpdateMembershipTier(paymentReq.UserID)
-	if err != nil {
-		log.Printf("Error updating membership tier for user %d: %v", paymentReq.UserID, err)
-		http.Error(w, "Error updating membership tier", http.StatusInternalServerError)
-		return
-	}
-
+	log.Printf("Payment processed successfully for Reservation ID: %d", paymentReq.ReservationID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": "Payment processed successfully and membership tier updated.",
+		"message": "Payment processed successfully.",
 	})
 }
-
-// UpdateMembershipTier updates the user's membership tier based on completed bookings
-func UpdateMembershipTier(userID int) error {
-	// Step 1: Count the number of valid (non-canceled) invoices/bookings for the user
-	var bookingCount int
-	err := db.QueryRow(`
-        SELECT COUNT(*) 
-        FROM ElectriGo_BillingDB.Invoices AS i
-        JOIN ElectriGo_VehicleDB.Reservations AS r ON i.reservation_id = r.reservation_id
-        WHERE i.user_id = ? AND r.status != 'Cancelled'
-    `, userID).Scan(&bookingCount)
-
-	if err != nil {
-		return err
-	}
-
-	// Step 2: Fetch the current membership tier from the database
-	var currentMembershipTier string
-	err = db.QueryRow("SELECT membership_tier FROM ElectriGo_AccountDB.Users WHERE user_id = ?", userID).Scan(&currentMembershipTier)
-	if err != nil {
-		return err
-	}
-
-	// Step 3: Determine the new membership tier based on booking count
-	var newMembershipTier string
-	if bookingCount >= 15 {
-		newMembershipTier = "VIP"
-	} else if bookingCount >= 5 {
-		newMembershipTier = "Premium"
-	} else {
-		newMembershipTier = "Basic"
-	}
-
-	// Step 4: Only update the membership tier if it actually changes
-	if newMembershipTier != currentMembershipTier {
-		_, err = db.Exec("UPDATE ElectriGo_AccountDB.Users SET membership_tier = ? WHERE user_id = ?", newMembershipTier, userID)
-		if err != nil {
-			return err
-		}
-		log.Printf("User %d has been upgraded to %s membership", userID, newMembershipTier)
-	} else {
-		log.Printf("User %d remains at %s membership", userID, currentMembershipTier)
-	}
-
-	return nil
-}
-
-// UpdateMembershipLevel checks the number of valid bookings and upgrades the user's membership level accordingly
-// func UpdateMembershipLevel(userID int) error {
-// 	// Step 1: Count the number of valid (Completed) reservations for the user
-// 	var validBookingCount int
-// 	query := `
-// 		SELECT COUNT(*)
-// 		FROM ElectriGo_VehicleDB.Reservations
-// 		WHERE user_id = ? AND status = 'Completed'
-// 	`
-// 	err := db.QueryRow(query, userID).Scan(&validBookingCount)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// Step 2: Determine the new membership tier based on valid bookings
-// 	var newMembershipTier string
-// 	if validBookingCount >= 15 {
-// 		newMembershipTier = "VIP"
-// 	} else if validBookingCount >= 5 {
-// 		newMembershipTier = "Premium"
-// 	} else {
-// 		newMembershipTier = "Basic"
-// 	}
-
-// 	// Step 3: Update the user's membership tier in the database
-// 	_, err = db.Exec("UPDATE ElectriGo_AccountDB.Users SET membership_tier = ? WHERE user_id = ?", newMembershipTier, userID)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	log.Printf("User %d has been upgraded to %s membership", userID, newMembershipTier)
-// 	return nil
-// }
 
 // GetInvoicesByUser fetches all invoices for a specific user
 func GetInvoicesByUser(w http.ResponseWriter, r *http.Request) {
@@ -295,7 +219,7 @@ func GetInvoicesByUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(invoices)
 }
 
-func SendInvoiceEmail(invoice Invoice, userEmail string, userName string) error {
+func SendInvoiceEmail(invoice Invoice, promoDiscount float64, userEmail string, userName string) error {
 	// Construct the email body with detailed invoice information
 	emailBody := fmt.Sprintf(`
 		<h2>ElectriGo Invoice</h2>
@@ -308,6 +232,7 @@ func SendInvoiceEmail(invoice Invoice, userEmail string, userName string) error 
 				<th>Reservation ID</th>
 				<th>Total Cost</th>
 				<th>Membership Discount</th>
+				<th>Promo Discount</th>
 				<th>Final Amount</th>
 				<th>Issued At</th>
 			</tr>
@@ -315,7 +240,8 @@ func SendInvoiceEmail(invoice Invoice, userEmail string, userName string) error 
 				<td>%d</td>
 				<td>%d</td>
 				<td>$%.2f</td>
-				<td>$%.2f</td>
+				<td>-$%.2f</td>
+				<td>-$%.2f</td>
 				<td>$%.2f</td>
 				<td>%s</td>
 			</tr>
@@ -323,7 +249,7 @@ func SendInvoiceEmail(invoice Invoice, userEmail string, userName string) error 
 		
 		<p>If you have any questions, feel free to contact us at support@electrigo.com or from the sender email address.</p>
 		<p>Thank you for choosing ElectriGo!</p>
-	`, userName, invoice.InvoiceID, invoice.ReservationID, invoice.TotalCost, invoice.MembershipDiscount, invoice.FinalAmount, invoice.IssuedAt)
+	`, userName, invoice.InvoiceID, invoice.ReservationID, invoice.TotalCost, invoice.MembershipDiscount, promoDiscount, invoice.FinalAmount, invoice.IssuedAt)
 
 	// Set up the email message
 	mail := gomail.NewMessage()
@@ -414,7 +340,22 @@ func ApplyPromoCode(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Promo code %s applied successfully: %f%% discount", req.PromoCode, discountPercentage)
 
-	// Step 4: Respond with discount details
+	// Step 4: Update the reservation total cost in the database
+	_, err = db.Exec(`
+        UPDATE ElectriGo_VehicleDB.Reservations 
+        SET total_cost = ? 
+        WHERE reservation_id = ?
+    `, totalCostAfterPromo, req.ReservationID)
+
+	if err != nil {
+		log.Printf("Error updating reservation total cost in Reservations table: %v", err)
+		http.Error(w, "Error updating reservation total cost", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Reservation ID %d updated with discounted total cost: %.2f", req.ReservationID, totalCostAfterPromo)
+
+	// Step 5: Respond with discount details
 	response := PromoResponse{
 		DiscountPercentage:  discountPercentage,
 		DiscountAmount:      discountAmount,
@@ -424,3 +365,84 @@ func ApplyPromoCode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
+
+// TODO:
+// UpdateMembershipTier updates the user's membership tier based on completed bookings
+func UpdateMembershipTier(userID int) error {
+	// Step 1: Count the number of valid (non-canceled) invoices/bookings for the user
+	var bookingCount int
+	err := db.QueryRow(`
+        SELECT COUNT(*) 
+        FROM ElectriGo_BillingDB.Invoices AS i
+        JOIN ElectriGo_VehicleDB.Reservations AS r ON i.reservation_id = r.reservation_id
+        WHERE i.user_id = ? AND r.status != 'Cancelled'
+    `, userID).Scan(&bookingCount)
+
+	if err != nil {
+		return err
+	}
+
+	// Step 2: Fetch the current membership tier from the database
+	var currentMembershipTier string
+	err = db.QueryRow("SELECT membership_tier FROM ElectriGo_AccountDB.Users WHERE user_id = ?", userID).Scan(&currentMembershipTier)
+	if err != nil {
+		return err
+	}
+
+	// Step 3: Determine the new membership tier based on booking count
+	var newMembershipTier string
+	if bookingCount >= 15 {
+		newMembershipTier = "VIP"
+	} else if bookingCount >= 5 {
+		newMembershipTier = "Premium"
+	} else {
+		newMembershipTier = "Basic"
+	}
+
+	// Step 4: Only update the membership tier if it actually changes
+	if newMembershipTier != currentMembershipTier {
+		_, err = db.Exec("UPDATE ElectriGo_AccountDB.Users SET membership_tier = ? WHERE user_id = ?", newMembershipTier, userID)
+		if err != nil {
+			return err
+		}
+		log.Printf("User %d has been upgraded to %s membership", userID, newMembershipTier)
+	} else {
+		log.Printf("User %d remains at %s membership", userID, currentMembershipTier)
+	}
+
+	return nil
+}
+
+// UpdateMembershipLevel checks the number of valid bookings and upgrades the user's membership level accordingly
+// func UpdateMembershipLevel(userID int) error {
+// 	// Step 1: Count the number of valid (Completed) reservations for the user
+// 	var validBookingCount int
+// 	query := `
+// 		SELECT COUNT(*)
+// 		FROM ElectriGo_VehicleDB.Reservations
+// 		WHERE user_id = ? AND status = 'Completed'
+// 	`
+// 	err := db.QueryRow(query, userID).Scan(&validBookingCount)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	// Step 2: Determine the new membership tier based on valid bookings
+// 	var newMembershipTier string
+// 	if validBookingCount >= 15 {
+// 		newMembershipTier = "VIP"
+// 	} else if validBookingCount >= 5 {
+// 		newMembershipTier = "Premium"
+// 	} else {
+// 		newMembershipTier = "Basic"
+// 	}
+
+// 	// Step 3: Update the user's membership tier in the database
+// 	_, err = db.Exec("UPDATE ElectriGo_AccountDB.Users SET membership_tier = ? WHERE user_id = ?", newMembershipTier, userID)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	log.Printf("User %d has been upgraded to %s membership", userID, newMembershipTier)
+// 	return nil
+// }
