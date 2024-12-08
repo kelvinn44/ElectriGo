@@ -24,25 +24,16 @@ func main() {
 	// Create a new router
 	r := mux.NewRouter()
 
-	// Define the routes for the account service
-	r.HandleFunc("/v1/account/register", account.RegisterUser).Methods("POST")
-	r.HandleFunc("/v1/account/login", account.LoginUser).Methods("POST")
-	r.HandleFunc("/v1/account/user/{user_id}", account.GetUserProfile).Methods("GET")
-	r.HandleFunc("/v1/account/user/{user_id}", account.UpdateUserProfile).Methods("PUT")
-	r.HandleFunc("/v1/account/requestVerificationCode", account.RequestVerificationCode).Methods("POST")
+	// Account Service Routes
+	r.HandleFunc("/v1/account/register", account.RegisterUser).Methods("POST")                           // Registers a new user account
+	r.HandleFunc("/v1/account/login", account.LoginUser).Methods("POST")                                 // Logs in a user
+	r.HandleFunc("/v1/account/user/{user_id}", account.GetUserProfile).Methods("GET")                    // Retrieves the profile of a specific user by their user ID
+	r.HandleFunc("/v1/account/user/{user_id}", account.UpdateUserProfile).Methods("PUT")                 // Updates the profile information for a specific user
+	r.HandleFunc("/v1/account/requestVerificationCode", account.RequestVerificationCode).Methods("POST") // Sends a verification code to the user's email for account sign up verification
+	r.HandleFunc("/v1/bookings/user/{user_id}/total", account.GetTotalReservations).Methods("GET")       // Retrieves the total number of reservations made by a user
 
-	// Setup CORS
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500"}, // Add the origins you want to allow
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},                   // Allow specific methods
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},                  // Allow specific headers
-		AllowCredentials: true,                                                       // Allow cookies and credentials
-	})
-
-	// Wrap the router with CORS
-	handler := c.Handler(r)
-
-	// Start the server
+	// Start the server on port 8080
+	handler := cors.Default().Handler(r)
 	fmt.Println("Account Service is running on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", handler))
 }

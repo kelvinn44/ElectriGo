@@ -19,28 +19,18 @@ func main() {
 	// Create a new router
 	r := mux.NewRouter()
 
-	// Define the routes for the car service
-	r.HandleFunc("/v1/vehicles", car.GetAllVehicles).Methods("GET")
+	// Car Rental Service Routes
+	r.HandleFunc("/v1/vehicles", car.GetAllVehicles).Methods("GET") // Retrieves a list of all available vehicles
 
-	// Define the routes for the booking service
-	r.HandleFunc("/v1/bookings/reserve", booking.MakeReservation).Methods("POST")
-	r.HandleFunc("/v1/bookings/{reservation_id}", booking.GetReservation).Methods("GET") // New route for reservation details
-	r.HandleFunc("/v1/reservations/{reservation_id}/cancel", booking.CancelReservation).Methods("PUT")
-	r.HandleFunc("/v1/bookings/user/{user_id}", booking.GetUserReservations).Methods("GET") // New route for getting all user reservations
-	r.HandleFunc("/v1/bookings/{reservation_id}", booking.UpdateReservation).Methods("PUT") // New route for updating a reservation
-
-	// Enable CORS for the router with specific configuration
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500"}, // Add your front-end origin here
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},                   // Allow specific methods
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},                  // Allow necessary headers
-		AllowCredentials: true,                                                       // Allow credentials like cookies, authorization headers
-	})
-
-	// Wrap the router with CORS middleware
-	handler := c.Handler(r)
+	// Booking Service Routes
+	r.HandleFunc("/v1/bookings/reserve", booking.MakeReservation).Methods("POST")                      // Creates a new reservation for a vehicle
+	r.HandleFunc("/v1/bookings/{reservation_id}", booking.GetReservation).Methods("GET")               // Retrieves details of a specific reservation by its ID
+	r.HandleFunc("/v1/reservations/{reservation_id}/cancel", booking.CancelReservation).Methods("PUT") // Cancels a specific reservation by its ID
+	r.HandleFunc("/v1/bookings/user/{user_id}", booking.GetUserReservations).Methods("GET")            // Retrieves all reservations for a specific user by their user ID
+	r.HandleFunc("/v1/bookings/{reservation_id}", booking.UpdateReservation).Methods("PUT")            // Updates the details of a specific reservation by its ID
 
 	// Start the server on port 8081
+	handler := cors.Default().Handler(r)
 	fmt.Println("Car Rental Service is running on port 8081")
 	log.Fatal(http.ListenAndServe(":8081", handler))
 }

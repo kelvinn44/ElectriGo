@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -32,7 +33,7 @@ func InitDB() {
 	if err := db.Ping(); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Database connected successfully.")
+	fmt.Println("Account Database connected successfully.")
 }
 
 // User struct represents a user in the system
@@ -106,12 +107,12 @@ func RequestVerificationCode(w http.ResponseWriter, r *http.Request) {
 	}
 	verificationCodes.Unlock()
 
-	// Respond with success and include the code for debugging
+	// Respond with success and include the code for comparison
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"message": "Verification code sent successfully.",
-		"code":    code, // Include the code in the response for debugging purposes (remove in production)
+		"code":    code,
 	})
 }
 
@@ -120,8 +121,8 @@ func sendVerificationEmail(email, code string) error {
 	m := gomail.NewMessage()
 	m.SetHeader("From", os.Getenv("GMAIL_EMAIL"))
 	m.SetHeader("To", email)
-	m.SetHeader("Subject", "Your Verification Code for Electrigo Account")
-	m.SetBody("text/plain", "Here's your verification code: "+code+" \t. This code will expire in 5 minutes.")
+	m.SetHeader("Subject", "Your Verification Code for ElectriGo Account Sign Up")
+	m.SetBody("text/plain", "Dear User,\n\nYour verification code is: "+code+"\n\nPlease note that this code is valid for 5 minutes.\n\nIf you did not request this code, please ignore this message.\n\nThank you,\nThe ElectriGo Team")
 
 	d := gomail.NewDialer("smtp.gmail.com", 587, os.Getenv("GMAIL_EMAIL"), os.Getenv("GMAIL_APP_PASSWORD"))
 
@@ -203,7 +204,6 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Respond with success
-	log.Println("User registered successfully:", req.Email)
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
@@ -254,32 +254,85 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
-	// Parse JSON from request body
-	var user User
-	err := json.NewDecoder(r.Body).Decode(&user)
+	vars := mux.Vars(r)
+	userID, err := strconv.Atoi(vars["user_id"])
 	if err != nil {
-		log.Printf("Error decoding request body: %v", err)
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	var userUpdate struct {
+		FirstName      *string `json:"first_name"`
+		LastName       *string `json:"last_name"`
+		DateOfBirth    *string `json:"date_of_birth"`
+		Address        *string `json:"address"`
+		MembershipTier *string `json:"membership_tier"`
+	}
+
+	// Decode the request body
+	err = json.NewDecoder(r.Body).Decode(&userUpdate)
+	if err != nil {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
 
-	// Validate required fields
-	if user.UserID == 0 || user.FirstName == "" || user.LastName == "" || user.DateOfBirth == "" || user.Address == "" {
-		log.Printf("Debugging: Missing required fields. User data: %+v", user)
-		http.Error(w, "Missing required fields", http.StatusBadRequest)
-		return
+	// Fetch the current user details
+	var existingUser struct {
+		FirstName      string
+		LastName       string
+		DateOfBirth    string
+		Address        string
+		MembershipTier string
 	}
 
-	// Update user in the database
-	_, err = db.Exec("UPDATE users SET first_name = ?, last_name = ?, date_of_birth = ?, address = ? WHERE user_id = ?",
-		user.FirstName, user.LastName, user.DateOfBirth, user.Address, user.UserID)
+	query := `SELECT first_name, last_name, date_of_birth, address, membership_tier FROM Users WHERE user_id = ?`
+	err = db.QueryRow(query, userID).Scan(&existingUser.FirstName, &existingUser.LastName, &existingUser.DateOfBirth, &existingUser.Address, &existingUser.MembershipTier)
 	if err != nil {
-		log.Printf("Error updating user in database: %v", err)
-		http.Error(w, "Error updating user profile", http.StatusInternalServerError)
+		log.Printf("Error fetching user: %v", err)
+		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	// Respond with success
+	// Only update fields that are provided in the payload
+	firstName := existingUser.FirstName
+	if userUpdate.FirstName != nil {
+		firstName = *userUpdate.FirstName
+	}
+
+	lastName := existingUser.LastName
+	if userUpdate.LastName != nil {
+		lastName = *userUpdate.LastName
+	}
+
+	dateOfBirth := existingUser.DateOfBirth
+	if userUpdate.DateOfBirth != nil {
+		dateOfBirth = *userUpdate.DateOfBirth
+	}
+
+	address := existingUser.Address
+	if userUpdate.Address != nil {
+		address = *userUpdate.Address
+	}
+
+	membershipTier := existingUser.MembershipTier
+	if userUpdate.MembershipTier != nil {
+		membershipTier = *userUpdate.MembershipTier
+	}
+
+	// Update the database with the new values
+	updateQuery := `
+        UPDATE Users
+        SET first_name = ?, last_name = ?, date_of_birth = ?, address = ?, membership_tier = ?
+        WHERE user_id = ?
+    `
+	_, err = db.Exec(updateQuery, firstName, lastName, dateOfBirth, address, membershipTier, userID)
+	if err != nil {
+		log.Printf("Error updating user: %v", err)
+		http.Error(w, "Failed to update user", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
@@ -310,4 +363,32 @@ func GetUserProfile(w http.ResponseWriter, r *http.Request) {
 	// Respond with user profile
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(user)
+}
+
+func GetTotalReservations(w http.ResponseWriter, r *http.Request) {
+	// Parse user ID from the URL
+	vars := mux.Vars(r)
+	userID, err := strconv.Atoi(vars["user_id"])
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	// Count non-canceled reservations for the user
+	var totalReservations int
+	query := `SELECT COUNT(*) FROM ElectriGo_VehicleDB.Reservations WHERE user_id = ? AND status IN ('active', 'completed')`
+	err = db.QueryRow(query, userID).Scan(&totalReservations)
+	if err != nil {
+		log.Printf("Error fetching total reservations: %v", err)
+		http.Error(w, "Failed to fetch total reservations", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with total bookings
+	response := map[string]interface{}{
+		"user_id":            userID,
+		"total_reservations": totalReservations,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

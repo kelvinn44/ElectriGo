@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const reservationId = urlParams.get('reservation_id');
-    const userId = localStorage.getItem('user_id');
 
     if (!reservationId) {
         alert("Invalid reservation. Redirecting to vehicles page.");
@@ -33,8 +32,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="card-body">
                     <p class="card-text"><strong>Booking ID:</strong> ${reservation.reservation_id}</p>
                     <p class="card-text"><strong>Vehicle:</strong> ${reservation.vehicle_name}</p>
-                    <p class="card-text"><strong>Start Date & Time:</strong> ${new Date(reservation.start_time).toLocaleString()}</p>
-                    <p class="card-text"><strong>End Date & Time:</strong> ${new Date(reservation.end_time).toLocaleString()}</p>
+                    <p class="card-text"><strong>Start Date & Time:</strong> ${formatDateTimeToDDMMYYYY(reservation.start_time)}</p>
+                    <p class="card-text"><strong>End Date & Time:</strong> ${formatDateTimeToDDMMYYYY(reservation.end_time)}</p>
                     <p class="card-text"><strong>Total Cost:</strong> $${reservation.total_cost.toFixed(2)}</p>
                 </div>
             </div>
@@ -44,6 +43,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert('Failed to load reservation details. Please try again later.');
     }
 });
+
+// Format date and time to dd/mm/yyyy hh:mm AM/PM
+function formatDateTimeToDDMMYYYY(dateString) {
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Month is 0-based
+    const year = date.getFullYear();
+    const hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const isPM = hours >= 12;
+    const formattedHour = isPM ? hours - 12 || 12 : hours || 12;
+    const ampm = isPM ? 'PM' : 'AM';
+    return `${day}/${month}/${year}, ${formattedHour}:${minutes} ${ampm}`;
+}
 
 // Helper functions for sign-in/sign-out logic
 function toggleSignIn() {

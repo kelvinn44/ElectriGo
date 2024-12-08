@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    const userId = localStorage.getItem('user_id'); // Retrieve user_id from localStorage
     const vehiclesApiUrl = 'http://localhost:8081/v1/vehicles'; // Endpoint to get all vehicles
 
     // Fetch all vehicles from the API
@@ -117,10 +116,6 @@ async function makeReservation(vehicleId) {
         end_time: endDateTime
     };
 
-    console.log("Making reservation for user_id:", userId, "vehicle_id:", vehicleId);
-    console.log("Start Date and Time:", startDateTime, "End Date and Time:", endDateTime);
-    console.log("Reservation payload:", reservationPayload);
-
     try {
         const response = await fetch('http://localhost:8081/v1/bookings/reserve', {
             method: 'POST',
@@ -137,7 +132,6 @@ async function makeReservation(vehicleId) {
         }
 
         const data = await response.json();
-        console.log("Reservation created successfully, response data:", data);
 
         // Use the returned reservation_id to navigate to the checkout page
         const reservationId = data.reservation_id;

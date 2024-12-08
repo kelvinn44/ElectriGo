@@ -12,10 +12,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// DB variable for global database connection for booking service
+// DB variable for global database connection for vehicle booking service table
 var db *sql.DB
 
-// Initialize the database connection for booking service
+// Initialize the database connection for vehicle booking service table
 func InitDB() {
 	var err error
 	// Connect to the MySQL database
@@ -27,7 +27,7 @@ func InitDB() {
 	if err := db.Ping(); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Booking Database connected successfully.")
+	fmt.Println("Vehicle Database for Reservation table connected successfully.")
 }
 
 // Reservation struct represents a reservation in the system
@@ -55,8 +55,6 @@ func MakeReservation(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
-
-	log.Printf("Decoded Reservation Input: %+v\n", reservation)
 
 	// Parse Start and End Time from ISO 8601 format
 	layout := time.RFC3339
@@ -111,8 +109,6 @@ func MakeReservation(w http.ResponseWriter, r *http.Request) {
 	}
 	reservation.TotalCost = duration * hourlyRate
 
-	log.Printf("Calculated Total Cost for Reservation: %.2f\n", reservation.TotalCost)
-
 	// Insert reservation into Reservations table, including total_cost
 	result, err := db.Exec("INSERT INTO Reservations (user_id, vehicle_id, start_time, end_time, status, total_cost) VALUES (?, ?, ?, ?, 'Active', ?)",
 		reservation.UserID, reservation.VehicleID, reservation.StartTime, reservation.EndTime, reservation.TotalCost)
@@ -126,8 +122,6 @@ func MakeReservation(w http.ResponseWriter, r *http.Request) {
 	reservationID, _ := result.LastInsertId()
 	reservation.ReservationID = int(reservationID)
 	reservation.VehicleName = vehicleName
-
-	log.Printf("Reservation successfully created with ID: %d\n", reservation.ReservationID)
 
 	// Update vehicle availability status to Booked
 	_, err = db.Exec("UPDATE Vehicles SET availability_status = 'Booked' WHERE vehicle_id = ?", reservation.VehicleID)
@@ -307,8 +301,6 @@ func CancelReservation(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	reservationID := vars["reservation_id"]
 
-	log.Printf("Attempting to cancel reservation with ID: %s", reservationID) // Log the reservation ID
-
 	// Get vehicle ID associated with the reservation
 	var vehicleID int
 	err := db.QueryRow("SELECT vehicle_id FROM Reservations WHERE reservation_id = ? AND status = 'Active'", reservationID).Scan(&vehicleID)
@@ -323,8 +315,6 @@ func CancelReservation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Found vehicle ID %d for reservation %s, proceeding to cancel", vehicleID, reservationID)
-
 	// Update reservation status to Cancelled
 	_, err = db.Exec("UPDATE Reservations SET status = 'Cancelled' WHERE reservation_id = ?", reservationID)
 	if err != nil {
@@ -333,8 +323,6 @@ func CancelReservation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Reservation %s successfully cancelled, updating vehicle availability", reservationID)
-
 	// Update vehicle availability status to Available
 	_, err = db.Exec("UPDATE Vehicles SET availability_status = 'Available' WHERE vehicle_id = ?", vehicleID)
 	if err != nil {
@@ -342,8 +330,6 @@ func CancelReservation(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error updating vehicle status", http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("Vehicle %d successfully updated to Available", vehicleID)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{

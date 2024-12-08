@@ -152,6 +152,7 @@ function openModifyInterface(reservationId, currentStartTime, currentEndTime) {
     const startDate = new Date(currentStartTime);
     const endDate = new Date(currentEndTime);
 
+    reservationIdInput.value = reservationId;
     reservationIdDisplay.textContent = `Reservation ID: ${reservationId}`;
     startDateInput.value = startDate.toISOString().split('T')[0];
     endDateInput.value = endDate.toISOString().split('T')[0];

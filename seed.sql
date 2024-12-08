@@ -1,45 +1,41 @@
--- Drop existing databases if they exist, to start from a clean state
--- First drop constraints that might prevent tables from being deleted properly
+-- Ensure we start fresh: Drop constraints, tables, and databases if they exist
 
+-- Use ElectriGo_BillingDB
 USE ElectriGo_BillingDB;
 
--- Drop foreign key constraints
-ALTER TABLE PaymentTransactions DROP FOREIGN KEY paymenttransactions_ibfk_1;
-ALTER TABLE PaymentTransactions DROP FOREIGN KEY paymenttransactions_ibfk_2;
-ALTER TABLE Invoices DROP FOREIGN KEY invoices_ibfk_1;
-ALTER TABLE Invoices DROP FOREIGN KEY invoices_ibfk_2;
-
--- Drop tables
+-- Drop foreign key constraints if they exist
+SET FOREIGN_KEY_CHECKS = 0; -- Temporarily disable foreign key checks
 DROP TABLE IF EXISTS PaymentTransactions;
 DROP TABLE IF EXISTS Invoices;
 DROP TABLE IF EXISTS Promotions;
 
+-- Use ElectriGo_VehicleDB
 USE ElectriGo_VehicleDB;
 
--- Drop foreign key constraints
-ALTER TABLE Reservations DROP FOREIGN KEY reservations_ibfk_1;
-ALTER TABLE Reservations DROP FOREIGN KEY reservations_ibfk_2;
-ALTER TABLE ReservationHistory DROP FOREIGN KEY reservationhistory_ibfk_1;
-
--- Drop tables
-DROP TABLE IF EXISTS ReservationHistory;
+-- Drop foreign key constraints if they exist
 DROP TABLE IF EXISTS Reservations;
 DROP TABLE IF EXISTS Vehicles;
 
+-- Use ElectriGo_AccountDB
 USE ElectriGo_AccountDB;
 
--- Drop tables
+-- Drop tables if they exist
 DROP TABLE IF EXISTS Users;
 
--- Drop databases
+-- Drop databases if they exist
 DROP DATABASE IF EXISTS ElectriGo_AccountDB;
 DROP DATABASE IF EXISTS ElectriGo_VehicleDB;
 DROP DATABASE IF EXISTS ElectriGo_BillingDB;
 
--- Recreate databases
+-- Recreate the databases
 CREATE DATABASE ElectriGo_AccountDB;
 CREATE DATABASE ElectriGo_VehicleDB;
 CREATE DATABASE ElectriGo_BillingDB;
+
+-- Re-enable foreign key checks
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- Begin creating tables and inserting sample data
 
 -- Use AccountDB
 USE ElectriGo_AccountDB;
@@ -66,7 +62,7 @@ VALUES
 ('jane.smith@example.com', '$2a$10$eAIugi6UQSOH89HbqMz49.GgYw0blDJwm3tzf..SlW/um9wtyWYtK', 'Premium', 'Jane', 'Smith', '1985-05-15', '456 Elm Street, Singapore'),
 ('alice.brown@example.com', '$2a$10$eAIugi6UQSOH89HbqMz49.GgYw0blDJwm3tzf..SlW/um9wtyWYtK', 'Basic', 'Alice', 'Brown', '1995-02-20', '789 Oak Street, Singapore'),
 ('bob.white@example.com', '$2a$10$eAIugi6UQSOH89HbqMz49.GgYw0blDJwm3tzf..SlW/um9wtyWYtK', 'VIP', 'Bob', 'White', '1980-11-30', '123 Pine Street, Singapore'),
-('charlie.gray@example.com', '$2a$10$eAIugi6UQSOH89HbqMz49.GgYw0blDJwm3tzf..SlW/um9wtyWYtK', 'Basic', 'Charlie', 'Gray', '1992-06-15', '321 Maple Street, Singapore'); -- Charlie is one booking away from Premium
+('charlie.gray@example.com', '$2a$10$eAIugi6UQSOH89HbqMz49.GgYw0blDJwm3tzf..SlW/um9wtyWYtK', 'Basic', 'Charlie', 'Gray', '1992-06-15', '321 Maple Street, Singapore');
 
 -- Use VehicleDB
 USE ElectriGo_VehicleDB;
@@ -96,16 +92,7 @@ CREATE TABLE Reservations (
     FOREIGN KEY (vehicle_id) REFERENCES Vehicles(vehicle_id) ON DELETE CASCADE
 );
 
--- Create ReservationHistory Table
-CREATE TABLE ReservationHistory (
-    history_id INT AUTO_INCREMENT PRIMARY KEY,
-    reservation_id INT NOT NULL,
-    modification_details TEXT,
-    modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (reservation_id) REFERENCES Reservations(reservation_id) ON DELETE CASCADE
-);
-
--- Insert Sample Data into VehicleDB
+-- Insert Sample Data into Vehicles
 INSERT INTO Vehicles (vehicle_name, license_plate, availability_status, hourly_rate)
 VALUES
 ('Tesla Model 3', 'EV1234A', 'Available', 20.00),
@@ -114,7 +101,7 @@ VALUES
 ('BMW i3', 'EV2022D', 'Available', 25.00),
 ('Hyundai Kona EV', 'EV3033E', 'Available', 22.00);
 
--- Insert Sample Data into Reservations with historical dates
+-- Insert Sample Data into Reservations
 INSERT INTO Reservations (user_id, vehicle_id, start_time, end_time, status, total_cost)
 VALUES 
 (1, 1, '2024-11-10 09:00:00', '2024-11-10 15:00:00', 'Completed', 120.00), -- John Doe
@@ -170,23 +157,27 @@ VALUES
 ('NEWYEAR2025', 10.00, '2024-12-01', '2025-01-31'),
 ('SPRINGSALE', 15.00, '2025-03-01', '2025-03-31');
 
--- Insert Sample Data into Invoices table
-INSERT INTO Invoices (reservation_id, user_id, total_cost, membership_discount, final_amount)
+-- Insert Sample Data into Invoices
+INSERT INTO Invoices (reservation_id, user_id, total_cost, membership_discount, promo_discount, final_amount)
 VALUES
-(1, 1, 120.00, 0.00, 120.00),
-(2, 2, 90.00, 10.00, 81.00),
-(4, 4, 150.00, 15.00, 127.50),
-(5, 5, 130.00, 0.00, 130.00),
-(6, 5, 45.00, 0.00, 45.00),
-(7, 5, 50.00, 0.00, 50.00),
-(8, 5, 44.00, 0.00, 44.00);
+(1, 1, 120.00, 0.00, 0.00, 120.00), -- John Doe
+(2, 2, 90.00, 10.00, 0.00, 81.00), -- Jane Smith
+(3, 3, 0.00, 0.00, 0.00, 0.00), -- Alice Brown (Cancelled reservation)
+(4, 4, 150.00, 15.00, 0.00, 135.00), -- Bob White
+(5, 5, 130.00, 0.00, 10.00, 117.00), -- Charlie Gray (Promo applied)
+(6, 5, 45.00, 0.00, 5.00, 40.00), -- Charlie Gray (Promo applied)
+(7, 5, 50.00, 0.00, 5.00, 45.00), -- Charlie Gray (Promo applied)
+(8, 5, 44.00, 0.00, 4.00, 40.00); -- Charlie Gray (Promo applied)
 
--- Insert into PaymentTransactions table
+-- Insert Sample Data into PaymentTransactions
 INSERT INTO PaymentTransactions (user_id, invoice_id, payment_method, payment_status)
 VALUES 
-(1, 1, 'PayNow', 'Completed'),
-(2, 2, 'BankTransfer', 'Completed'),
-(4, 3, 'PayNow', 'Pending'),
-(5, 4, 'BankTransfer', 'Completed'),
-(5, 5, 'PayNow', 'Completed'),
-(5, 6, 'PayNow', 'Completed');
+(1, 1, 'PayNow', 'Completed'), -- John Doe
+(2, 2, 'BankTransfer', 'Completed'), -- Jane Smith
+(3, 3, 'PayNow', 'Completed'), -- Alice Brown
+(4, 3, 'PayNow', 'Pending'), -- Bob White (Pending payment)
+(5, 4, 'BankTransfer', 'Completed'), -- Charlie Gray
+(5, 5, 'PayNow', 'Completed'), -- Charlie Gray
+(5, 6, 'PayNow', 'Completed'), -- Charlie Gray
+(5, 7, 'BankTransfer', 'Completed'), -- Charlie Gray
+(5, 8, 'PayNow', 'Completed'); -- Charlie Gray
