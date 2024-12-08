@@ -52,6 +52,39 @@
         </div>
     </main>
 
+    <!-- Modify Reservation Modal -->
+    <div id="modifyModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Modify Reservation</h2>
+            <p id="reservationIdDisplay" class="text-muted"></p>
+            <form id="modifyForm">
+                <input type="hidden" id="reservationIdInput">
+                <div class="mb-3">
+                    <label for="startDateInput" class="form-label">New Start Date</label>
+                    <input type="date" id="startDateInput" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label for="startTimeInput" class="form-label">New Start Time</label>
+                    <select id="startTimeInput" class="form-control">
+                        <!-- Hour options will be dynamically generated -->
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="endDateInput" class="form-label">New End Date</label>
+                    <input type="date" id="endDateInput" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label for="endTimeInput" class="form-label">New End Time</label>
+                    <select id="endTimeInput" class="form-control">
+                        <!-- Hour options will be dynamically generated -->
+                    </select>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="saveModifiedReservation()">Save Changes</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModifyInterface()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
     <footer style="background-color: #1F262D;">
         <div class="text-center py-3">
             <p style="margin: 0; color: white;">&copy; 2024 ElectriGo | Contact us: <a href="mailto:contact@electrigo.com" style="color: white;">contact@electrigo.com</a></p>
